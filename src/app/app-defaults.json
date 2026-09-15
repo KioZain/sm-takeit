@@ -1,0 +1,95 @@
+{
+  "version": 2,
+  "appId": "sm-takeit",
+  "state": {
+    "values": {
+      "export.includeBackground": false,
+      "scene.background": "#FFFFFF",
+      "canvas.workspaceBackground": "dots",
+      "canvas.aspectRatio": {
+        "height": 11,
+        "mode": "custom",
+        "value": "20:11",
+        "width": 20
+      },
+      "canvas.size.width": 480,
+      "canvas.size.height": 264,
+      "grid.preset": "6",
+      "grid.cellSize": 72,
+      "grid.visible": true,
+      "library.objects": {
+        "activeId": null,
+        "items": {}
+      },
+      "field.tool": "place",
+      "field.placements": {
+        "items": []
+      },
+      "shadow.opacity": 30,
+      "shadow.blur": 8,
+      "shadow.offset": {
+        "x": 0,
+        "y": 0.1
+      },
+      "output.crop": "field",
+      "output.padding": 24,
+      "output.includeGrid": false,
+      "export.image.format": "png",
+      "export.image.resolution": "4k"
+    },
+    "canvas": {
+      "offset": {
+        "x": 0,
+        "y": -8.00048828125
+      },
+      "size": {
+        "height": 264,
+        "unit": "px",
+        "width": 480
+      },
+      "zoom": 100,
+      "mode": "finite"
+    },
+    "panels": {
+      "controls": {
+        "collapsedSections": {},
+        "offset": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "layers": {
+        "offset": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "timeline": {
+        "offset": {
+          "x": 0,
+          "y": 0
+        }
+      },
+      "toolbar": {
+        "offset": {
+          "x": 0,
+          "y": 0
+        }
+      }
+    },
+    "timeline": {
+      "currentTimeSeconds": 0,
+      "durationSeconds": 8,
+      "expanded": false,
+      "isLooping": true,
+      "isPlaying": true,
+      "selectedKeyframeId": null,
+      "keyframeGroups": []
+    },
+    "layers": [],
+    "selectedLayerId": null,
+    "mediaAssets": []
+  },
+  "resources": [],
+  "theme": "dark"
+}

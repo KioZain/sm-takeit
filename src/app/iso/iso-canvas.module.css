@@ -1,0 +1,63 @@
+.stage {
+  position: relative;
+  display: block;
+}
+
+.scene {
+  display: block;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.fieldHandle {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  padding: 0;
+  touch-action: none;
+}
+
+.fieldHandle[data-iso-tool="place"] {
+  cursor: copy;
+}
+
+.fieldHandle[data-iso-tool="select"] {
+  cursor: crosshair;
+}
+
+.fieldHandle[data-iso-tool="erase"] {
+  cursor: pointer;
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+  pointer-events: none;
+}
+
+.hoverValid {
+  fill: color-mix(in oklab, var(--link) 22%, transparent);
+  stroke: var(--link);
+}
+
+.hoverInvalid {
+  fill: color-mix(in oklab, var(--destructive) 22%, transparent);
+  stroke: var(--destructive);
+}
+
+.hoverCell {
+  fill: none;
+  stroke: var(--link);
+}
+
+.selection {
+  fill: color-mix(in oklab, var(--link) 10%, transparent);
+  stroke: var(--link);
+  stroke-dasharray: 6 4;
+}
