@@ -21,15 +21,21 @@ type IsoRendererPasses = {
 export const ISO_SCENE_LAYOUT_KEYS = [
   "field.placements",
   "grid.cellSize",
-  "grid.preset",
+  "grid.hideHiddenLines",
+  "grid.levelHeight",
+  "grid.size",
   "library.files",
   "library.objects",
   "output.crop",
   "output.includeGrid",
   "output.padding",
-  "shadow.blur",
-  "shadow.offset",
-  "shadow.opacity",
+  "output.showPieces",
+  "relief.corner",
+  "relief.edge",
+  "relief.edits",
+  "relief.max",
+  "relief.pattern",
+  "relief.step",
 ] as const;
 
 export const ISO_OBJECT_IMAGES_KEY = "iso-object-images";
@@ -62,10 +68,15 @@ export const isoRendererPipelineRegistration =
         mustNotInvalidate: ["object-images"],
         targets: [
           "field.placements",
-          "grid.preset",
+          "grid.hideHiddenLines",
           "library.objects",
           "output.crop",
           "output.includeGrid",
+          "output.showPieces",
+          "relief.corner",
+          "relief.edge",
+          "relief.edits",
+          "relief.pattern",
         ],
       },
       {
@@ -86,10 +97,11 @@ export const isoRendererPipelineRegistration =
         mustNotInvalidate: ["object-images"],
         targets: [
           "grid.cellSize",
+          "grid.levelHeight",
+          "grid.size",
           "output.padding",
-          "shadow.blur",
-          "shadow.offset",
-          "shadow.opacity",
+          "relief.max",
+          "relief.step",
         ],
       },
       {
@@ -97,6 +109,13 @@ export const isoRendererPipelineRegistration =
         invalidates: ["editor-overlay"],
         mustNotInvalidate: ["object-images", "scene-layout", "preview-svg"],
         targets: ["field.selection"],
+      },
+      {
+        // Dragging a column on the canvas rewrites heights live.
+        interaction: "mask-drag",
+        invalidates: ["scene-layout", "preview-svg", "editor-overlay"],
+        mustNotInvalidate: ["object-images"],
+        targets: ["relief.edits"],
       },
       {
         interaction: "viewport-drag",

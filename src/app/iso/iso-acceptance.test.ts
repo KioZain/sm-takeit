@@ -1,23 +1,15 @@
-import { describe, expect, it, vi } from "vitest";
+import { describe, expect, it } from "vitest";
 
 import type {
-  ToolcraftCommand,
   ToolcraftProductExportFrameContext,
   ToolcraftRendererPipelineClient,
 } from "@/toolcraft/runtime";
-import type { ToolcraftPanelActionContext } from "@/toolcraft/runtime/react";
 
 import { appSchema } from "../app-schema";
-import { handleIsoPanelAction } from "./iso-actions";
 import { isoRasterFrameRenderer } from "./iso-export";
-import { getIsoCellCommand, type IsoFieldContext } from "./iso-field";
-import {
-  buildIsoSceneModel,
-  normalizeCellRect,
-  type IsoObjectRecord,
-  type IsoPlacement,
-} from "./iso-geometry";
-import { getIsoGridLines } from "./iso-scene";
+import { getIsoCellCommand, getIsoHeightStepCommand } from "./iso-field";
+import { normalizeCellRect } from "./iso-geometry";
+import { buildIsoSceneModel } from "./iso-scene-model";
 import {
   buildIsoSceneModelFromState,
   createIsoSelectionCommand,
@@ -28,97 +20,22 @@ import {
   readIsoGridVisible,
   readIsoPlacements,
   readIsoSceneInput,
-  readIsoTool,
   ISO_ACTIONS,
-  ISO_DEFAULTS,
   ISO_TARGETS,
-  type IsoStateSource,
 } from "./iso-state";
-
-type TestAsset = IsoStateSource["mediaAssets"][number] & { resourceRef: string };
-
-const size = { height: 150, width: 100 };
-
-function asset(id: string): TestAsset {
-  return {
-    assetKind: "file",
-    fileName: `${id}.png`,
-    id,
-    resourceRef: `ref-${id}`,
-    sourceTarget: ISO_TARGETS.libraryFiles,
-  };
-}
-
-function record(name: string, patch: Partial<IsoObjectRecord> = {}): IsoObjectRecord {
-  return { anchor: { x: 0.5, y: 0.9 }, footprint: "1x1", name, scale: 1, size, ...patch };
-}
-
-function at(objectId: string, col: number, row: number, footprint: IsoPlacement["footprint"] = "1x1"): IsoPlacement {
-  return { col, footprint, id: `${objectId}@${col},${row}`, objectId, row };
-}
-
-function createState(
-  values: Record<string, unknown> = {},
-  assets: readonly TestAsset[] = [asset("maki"), asset("nigiri")],
-): IsoStateSource & { mediaAssets: readonly TestAsset[] } {
-  return {
-    mediaAssets: assets,
-    values: {
-      [ISO_TARGETS.cellSize]: 100,
-      [ISO_TARGETS.crop]: ISO_DEFAULTS.crop,
-      [ISO_TARGETS.gridPreset]: ISO_DEFAULTS.gridPreset,
-      [ISO_TARGETS.gridVisible]: true,
-      [ISO_TARGETS.includeBackground]: false,
-      [ISO_TARGETS.includeGrid]: false,
-      [ISO_TARGETS.libraryObjects]: {
-        activeId: null,
-        items: { maki: record("maki"), nigiri: record("nigiri") },
-      },
-      [ISO_TARGETS.padding]: 10,
-      [ISO_TARGETS.placements]: { items: [] },
-      [ISO_TARGETS.shadowBlur]: 0,
-      [ISO_TARGETS.shadowOffset]: { x: 0, y: 0 },
-      [ISO_TARGETS.shadowOpacity]: 30,
-      [ISO_TARGETS.tool]: "place",
-      ...values,
-    },
-  };
-}
-
-function withPlacements(items: readonly IsoPlacement[], values: Record<string, unknown> = {}) {
-  return createState({ [ISO_TARGETS.placements]: { items }, ...values });
-}
-
-function fieldContext(state: ReturnType<typeof createState>): IsoFieldContext {
-  const activeId = getIsoActiveObjectId(state);
-  const input = readIsoSceneInput(state);
-  return {
-    active: getIsoLibraryObjects(state).find((object) => object.id === activeId) ?? null,
-    cellSize: input.cellSize,
-    gridSize: input.gridSize,
-    model: buildIsoSceneModelFromState(state),
-    placements: getIsoActivePlacements(state),
-    selection: null,
-    tool: readIsoTool(state.values),
-  };
-}
-
-function placedIds(command: ToolcraftCommand | null): string[] {
-  if (!command || command.type !== "controls.setValue") return [];
-  return readIsoPlacements({ [ISO_TARGETS.placements]: command.value }).map((item) => item.id);
-}
-
-function runAction(value: string, state: ReturnType<typeof createState>) {
-  const dispatch = vi.fn<(command: ToolcraftCommand) => void>();
-  const reportFeedback = vi.fn();
-  handleIsoPanelAction({
-    action: { value },
-    dispatch,
-    reportFeedback,
-    state,
-  } as unknown as ToolcraftPanelActionContext);
-  return { dispatched: dispatch.mock.calls.map(([command]) => command), reportFeedback };
-}
+import {
+  asset,
+  at,
+  createState,
+  fieldContext,
+  applyCommand,
+  heightMatrix,
+  placedIds,
+  record,
+  runAction,
+  size,
+  withPlacements,
+} from "./iso-test-fixtures";
 
 function createRecordingContext() {
   const calls: string[] = [];
@@ -200,12 +117,27 @@ describe("sushi set acceptance", () => {
     expect(setupTargets).toEqual(expect.arrayContaining([ISO_TARGETS.includeBackground, ISO_TARGETS.background]));
   });
 
-  it("grid presets rebuild the rhombus field", () => {
-    const small = buildIsoSceneModelFromState(createState({ [ISO_TARGETS.gridPreset]: "6" }));
-    const large = buildIsoSceneModelFromState(createState({ [ISO_TARGETS.gridPreset]: "12" }));
-    expect(small.field.width).toBe(600);
-    expect(large.field.width).toBe(1200);
-    expect(getIsoGridLines(12, 100)).toHaveLength(26);
+  it("grid size rebuilds the rhombus field from 2 to 8 cells", () => {
+    const size = (value: unknown) =>
+      buildIsoSceneModelFromState(createState({ [ISO_TARGETS.gridSize]: value })).field.width;
+    expect(size(2)).toBe(200);
+    expect(size(8)).toBe(800);
+    expect(size(1)).toBe(200);
+    expect(size(12)).toBe(800);
+    expect(size(4.6)).toBe(500);
+    expect(buildIsoSceneModelFromState(createState({ [ISO_TARGETS.gridSize]: 8 })).guide).toHaveLength(144);
+
+    // Shrinking hides pieces outside the field; edits keep them for regrowth.
+    const pieces = [at("maki", 0, 0), at("nigiri", 5, 5), at("maki", 3, 0, "2x2")];
+    const shrunk = withPlacements(pieces, { [ISO_TARGETS.gridSize]: 4 });
+    expect(getIsoActivePlacements(shrunk).map((item) => item.id)).toEqual(["maki@0,0"]);
+    const placed = getIsoCellCommand(fieldContext(shrunk), { col: 1, row: 1 }, null);
+    expect(placedIds(placed)).toEqual(["maki@0,0", "maki@1,1", "nigiri@5,5", "maki@3,0"]);
+    const regrown = withPlacements(
+      readIsoPlacements({ [ISO_TARGETS.placements]: placed?.type === "controls.setValue" ? placed.value : null }),
+      { [ISO_TARGETS.gridSize]: 6 },
+    );
+    expect(getIsoActivePlacements(regrown)).toHaveLength(4);
   });
 
   it("cell size scales the projected field", () => {
@@ -216,7 +148,7 @@ describe("sushi set acceptance", () => {
   it("grid visibility toggles the dashed lines", () => {
     expect(readIsoGridVisible(createState().values)).toBe(true);
     expect(readIsoGridVisible(createState({ [ISO_TARGETS.gridVisible]: false }).values)).toBe(false);
-    expect(getIsoGridLines(6, 100)).toHaveLength(14);
+    expect(buildIsoSceneModelFromState(createState()).guide).toHaveLength(84);
   });
 
   it("library uploads become objects and removal clears their pieces", () => {
@@ -267,6 +199,10 @@ describe("sushi set acceptance", () => {
     expect(getIsoCellCommand(fieldContext({ ...state, values: { ...state.values, [ISO_TARGETS.tool]: "place" } }), cell, null)).toBeNull();
     expect(placedIds(getIsoCellCommand(fieldContext({ ...state, values: { ...state.values, [ISO_TARGETS.tool]: "erase" } }), cell, null))).toEqual([]);
     expect(getIsoCellCommand(fieldContext({ ...state, values: { ...state.values, [ISO_TARGETS.tool]: "select" } }), cell, null)).toBeNull();
+    const height = fieldContext({ ...state, values: { ...state.values, [ISO_TARGETS.tool]: "height" } });
+    expect(getIsoCellCommand(height, cell, null)).toBeNull();
+    const raised = applyCommand(state, getIsoHeightStepCommand(height, cell, 1));
+    expect(heightMatrix(raised)[1]![1]).toBe(1);
   });
 
   it("field commands fill a section, fill the field, and clear it", () => {
@@ -326,31 +262,6 @@ describe("sushi set acceptance", () => {
     expect(placedIds(getIsoCellCommand(withSelection, { col: 1, row: 0 }, null))).toEqual(["nigiri@4,4"]);
   });
 
-  it("shadow opacity scales the shadow layer", () => {
-    const placements = [at("maki", 0, 0)];
-    expect(readIsoSceneInput(withPlacements(placements, { [ISO_TARGETS.shadowOpacity]: 45 })).shadow.opacity).toBe(0.45);
-    expect(buildIsoSceneModelFromState(withPlacements(placements, { [ISO_TARGETS.shadowOpacity]: 0 })).shadowPolygons).toHaveLength(0);
-  });
-
-  it("shadow blur expands shadow bounds", async () => {
-    const placements = [at("maki", 0, 0)];
-    const content = { [ISO_TARGETS.crop]: "content" };
-    const sharp = buildIsoSceneModelFromState(withPlacements(placements, { ...content, [ISO_TARGETS.shadowBlur]: 0 }));
-    const soft = buildIsoSceneModelFromState(withPlacements(placements, { ...content, [ISO_TARGETS.shadowBlur]: 20 }));
-    expect(soft.frame.height).toBeGreaterThan(sharp.frame.height);
-    const { calls } = await exportFrame(withPlacements(placements, { [ISO_TARGETS.shadowBlur]: 5 }), 3);
-    expect(calls).toContain("filter:blur(15px)");
-  });
-
-  it("shadow offset moves every shadow polygon", () => {
-    const placements = [at("maki", 0, 0), at("nigiri", 1, 0)];
-    const base = buildIsoSceneModelFromState(withPlacements(placements));
-    const moved = buildIsoSceneModelFromState(withPlacements(placements, { [ISO_TARGETS.shadowOffset]: { x: 0.5, y: -1 } }));
-    moved.shadowPolygons.forEach((polygon, index) => {
-      expect(polygon[0]).toEqual({ x: base.shadowPolygons[index]![0]!.x + 25, y: base.shadowPolygons[index]![0]!.y - 50 });
-    });
-  });
-
   it("crop modes frame the field or the content", () => {
     const placements = [at("maki", 0, 0)];
     const off = buildIsoSceneModelFromState(withPlacements(placements, { [ISO_TARGETS.crop]: "off" }));
@@ -367,6 +278,21 @@ describe("sushi set acceptance", () => {
     const padded = buildIsoSceneModelFromState(withPlacements(placements, { ...values, [ISO_TARGETS.padding]: 30 }));
     expect(padded.frame.width - tight.frame.width).toBe(60);
     expect(padded.frame.height - tight.frame.height).toBe(60);
+  });
+
+  it("show rolls hides every piece from the preview and export", async () => {
+    const values = { [ISO_TARGETS.crop]: "content", [ISO_TARGETS.includeGrid]: true };
+    const shown = withPlacements([at("maki", 0, 0)], values);
+    const hidden = withPlacements([at("maki", 0, 0)], { ...values, [ISO_TARGETS.showPieces]: false });
+    expect((await exportFrame(shown)).images).toHaveLength(1);
+    const exported = await exportFrame(hidden);
+    expect(exported.images).toEqual([]);
+    expect(exported.calls).toContain("stroke");
+    // Hidden pieces stay placed, and the content frame falls back to the grid.
+    expect(getIsoActivePlacements(hidden)).toHaveLength(1);
+    const model = buildIsoSceneModelFromState(hidden);
+    expect(model.piecesVisible).toBe(false);
+    expect(model.frame.width).toBe(model.field.width + 20);
   });
 
   it("grid can be included in the export", async () => {

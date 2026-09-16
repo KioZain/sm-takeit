@@ -1,7 +1,6 @@
 import { describe, expect, it } from "vitest";
 
 import {
-  buildIsoSceneModel,
   checkPlacement,
   eraseCellRect,
   fillCellRect,
@@ -16,6 +15,7 @@ import {
   type IsoPlacement,
   type IsoSceneInput,
 } from "./iso-geometry";
+import { buildIsoSceneModel } from "./iso-scene-model";
 
 const record: IsoObjectRecord = {
   anchor: { x: 0.5, y: 0.9 },
@@ -38,7 +38,10 @@ function sceneInput(overrides: Partial<IsoSceneInput> = {}): IsoSceneInput {
     objects: { roll: record },
     padding: 10,
     placements: [],
-    shadow: { blur: 0, offset: { x: 0, y: 0 }, opacity: 0 },
+    heights: new Map(),
+    hideHiddenLines: false,
+    levelHeight: 50,
+    showPieces: true,
     ...overrides,
   };
 }

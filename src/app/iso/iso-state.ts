@@ -1,42 +1,62 @@
 import type { ToolcraftCommand } from "@/toolcraft/runtime";
 
 import {
-  buildIsoSceneModel,
   filterRenderablePlacements,
+  footprintFitsGrid,
+  heightKey,
   ISO_FOOTPRINTS,
   type IsoCellRect,
   type IsoCropMode,
   type IsoFootprint,
+  type IsoHeightMap,
   type IsoObjectRecord,
   type IsoPlacement,
   type IsoPoint,
   type IsoSceneInput,
   type IsoSceneModel,
 } from "./iso-geometry";
+import {
+  composeReliefHeights,
+  getPatternHeights,
+  ISO_MAX_COLUMN_LEVELS,
+  ISO_RELIEF_CORNERS,
+  ISO_RELIEF_EDGES,
+  ISO_RELIEF_PATTERNS,
+  type IsoReliefCorner,
+  type IsoReliefEdge,
+  type IsoReliefPattern,
+  type IsoReliefSettings,
+} from "./iso-relief";
+import { buildIsoSceneModel } from "./iso-scene-model";
 
 export const ISO_TARGETS = {
   background: "scene.background",
   cellSize: "grid.cellSize",
   commands: "field.commands",
   crop: "output.crop",
-  gridPreset: "grid.preset",
+  gridSize: "grid.size",
   gridVisible: "grid.visible",
+  hideHiddenLines: "grid.hideHiddenLines",
+  reliefEdits: "relief.edits",
   includeBackground: "export.includeBackground",
   includeGrid: "output.includeGrid",
+  levelHeight: "grid.levelHeight",
   libraryFiles: "library.files",
   libraryObjects: "library.objects",
   padding: "output.padding",
   placements: "field.placements",
+  reliefCommands: "relief.commands",
+  reliefCorner: "relief.corner",
+  reliefEdge: "relief.edge",
+  reliefMax: "relief.max",
+  reliefPattern: "relief.pattern",
+  reliefStep: "relief.step",
   selection: "field.selection",
-  shadowBlur: "shadow.blur",
-  shadowOffset: "shadow.offset",
-  shadowOpacity: "shadow.opacity",
+  showPieces: "output.showPieces",
   tool: "field.tool",
 } as const;
 
-export type IsoTool = "erase" | "place" | "select";
-
-export type IsoGridPreset = "6" | "12";
+export type IsoTool = "erase" | "height" | "place" | "select";
 
 export type IsoLibraryValue = Readonly<{
   activeId: string | null;
@@ -58,20 +78,29 @@ export const ISO_DEFAULTS = {
   background: "#FFFFFF",
   cellSize: 72,
   crop: "field" as IsoCropMode,
-  gridPreset: "6" as IsoGridPreset,
+  gridSize: 6,
   gridVisible: true,
+  hideHiddenLines: false,
   includeBackground: false,
   includeGrid: false,
+  /** One column level as a percentage of the cell width. */
+  levelHeight: 50,
   padding: 24,
-  shadowBlur: 8,
-  shadowOffset: { x: 0, y: 0.1 },
-  shadowOpacity: 30,
+  reliefCorner: "top" as IsoReliefCorner,
+  reliefEdge: "top-left" as IsoReliefEdge,
+  reliefMax: 4,
+  reliefPattern: "flat" as IsoReliefPattern,
+  reliefStep: 2,
+  showPieces: true,
   tool: "place" as IsoTool,
 } as const;
 
 export const ISO_DEFAULT_ANCHOR: IsoPoint = Object.freeze({ x: 0.5, y: 0.9 });
 
 export const ISO_LIBRARY_MAX_OBJECTS = 24;
+
+/** Cells per side of the square field. */
+export const ISO_GRID_SIZE_RANGE = { max: 8, min: 2 } as const;
 
 export const ISO_FIELD_HANDLE_TEST_ID = "iso-field";
 
@@ -80,6 +109,13 @@ export const ISO_ACTIONS = {
   fillField: "field.fill-all",
   fillSelection: "field.fill-selection",
 } as const;
+
+export const ISO_RELIEF_ACTIONS = {
+  resetEdits: "relief.reset-edits",
+} as const;
+
+/** Level height range as a percentage of the cell width. */
+export const ISO_LEVEL_HEIGHT_RANGE = { max: 100, min: 10 } as const;
 
 /** Structural media view shared by live state and readonly export snapshots. */
 export type IsoMediaAssetLike = Readonly<{
@@ -112,12 +148,13 @@ export function isIsoFootprint(value: unknown): value is IsoFootprint {
 }
 
 export function getIsoGridSize(values: IsoStateSource["values"]): number {
-  return values[ISO_TARGETS.gridPreset] === "12" ? 12 : 6;
+  const size = Math.round(finiteNumber(values[ISO_TARGETS.gridSize], ISO_DEFAULTS.gridSize));
+  return clamp(size, ISO_GRID_SIZE_RANGE.min, ISO_GRID_SIZE_RANGE.max);
 }
 
 export function readIsoTool(values: IsoStateSource["values"]): IsoTool {
   const tool = values[ISO_TARGETS.tool];
-  return tool === "select" || tool === "erase" ? tool : "place";
+  return tool === "select" || tool === "erase" || tool === "height" ? tool : "place";
 }
 
 function readCropMode(value: unknown): IsoCropMode {
@@ -241,6 +278,20 @@ export function getIsoActivePlacements(state: IsoStateSource): IsoPlacement[] {
   );
 }
 
+/**
+ * Stored pieces of existing objects that no longer fit a shrunken grid. Field
+ * edits keep them so growing the grid again brings them back.
+ */
+export function getIsoOffGridPlacements(state: IsoStateSource): IsoPlacement[] {
+  const objectIds = new Set(getIsoLibraryAssets(state.mediaAssets).map((asset) => asset.id));
+  const gridSize = getIsoGridSize(state.values);
+  return readIsoPlacements(state.values).filter(
+    (placement) =>
+      objectIds.has(placement.objectId) &&
+      !footprintFitsGrid(placement.col, placement.row, placement.footprint, gridSize),
+  );
+}
+
 export type IsoCompositionRow = Readonly<{ count: number; id: string; name: string }>;
 
 /** Pieces per object in library order, plus the total on the field. */
@@ -259,6 +310,54 @@ export function getIsoCompositionSummary(state: IsoStateSource): Readonly<{
       return count ? [{ count, id: object.id, name: object.record.name }] : [];
     }),
     total: placements.length,
+  };
+}
+
+/** Hand edits in levels over the pattern, including columns outside a shrunken grid. */
+export function readIsoReliefEdits(values: IsoStateSource["values"]): Map<string, number> {
+  const value = values[ISO_TARGETS.reliefEdits];
+  const cells = isRecord(value) && isRecord(value.cells) ? value.cells : {};
+  return new Map(
+    Object.entries(cells).flatMap(([key, offset]): Array<[string, number]> => {
+      const [col, row, extra] = key.split(",").map(Number);
+      const level = finiteNumber(offset, Number.NaN);
+      if (extra !== undefined || !Number.isInteger(col) || !Number.isInteger(row)) return [];
+      if (col! < 0 || row! < 0 || !Number.isFinite(level) || level === 0) return [];
+      return [[heightKey(col!, row!), clamp(level, -ISO_MAX_COLUMN_LEVELS, ISO_MAX_COLUMN_LEVELS)]];
+    }),
+  );
+}
+
+export type IsoReliefLayers = Readonly<{
+  edits: IsoHeightMap;
+  /** Final column heights shown on the field. */
+  heights: IsoHeightMap;
+  pattern: IsoHeightMap;
+}>;
+
+/** The live pattern, the hand edits over it, and the resulting column heights. */
+export function getIsoReliefLayers(state: IsoStateSource): IsoReliefLayers {
+  const gridSize = getIsoGridSize(state.values);
+  const pattern = getPatternHeights(readIsoReliefSettings(state.values), gridSize);
+  const edits = readIsoReliefEdits(state.values);
+  return {
+    edits,
+    heights: composeReliefHeights(pattern, edits, gridSize, getIsoActivePlacements(state)),
+    pattern,
+  };
+}
+
+function readOption<T extends string>(value: unknown, options: readonly T[], fallback: T): T {
+  return options.includes(value as T) ? (value as T) : fallback;
+}
+
+export function readIsoReliefSettings(values: IsoStateSource["values"]): IsoReliefSettings {
+  return {
+    corner: readOption(values[ISO_TARGETS.reliefCorner], ISO_RELIEF_CORNERS, ISO_DEFAULTS.reliefCorner),
+    edge: readOption(values[ISO_TARGETS.reliefEdge], ISO_RELIEF_EDGES, ISO_DEFAULTS.reliefEdge),
+    max: clamp(Math.round(finiteNumber(values[ISO_TARGETS.reliefMax], ISO_DEFAULTS.reliefMax)), 0, 8),
+    pattern: readOption(values[ISO_TARGETS.reliefPattern], ISO_RELIEF_PATTERNS, ISO_DEFAULTS.reliefPattern),
+    step: clamp(Math.round(finiteNumber(values[ISO_TARGETS.reliefStep], ISO_DEFAULTS.reliefStep)), 1, 4),
   };
 }
 
@@ -281,28 +380,25 @@ export function readIsoGridVisible(values: IsoStateSource["values"]): boolean {
 export function readIsoSceneInput(state: IsoStateSource): IsoSceneInput {
   const { values } = state;
   const cellSize = clamp(finiteNumber(values[ISO_TARGETS.cellSize], ISO_DEFAULTS.cellSize), 8, 1024);
-  const offset = isRecord(values[ISO_TARGETS.shadowOffset])
-    ? (values[ISO_TARGETS.shadowOffset] as Record<string, unknown>)
-    : ISO_DEFAULTS.shadowOffset;
+  const levelPercent = clamp(
+    finiteNumber(values[ISO_TARGETS.levelHeight], ISO_DEFAULTS.levelHeight),
+    ISO_LEVEL_HEIGHT_RANGE.min,
+    ISO_LEVEL_HEIGHT_RANGE.max,
+  );
   const objects: Record<string, IsoObjectRecord> = {};
   for (const object of getIsoLibraryObjects(state)) objects[object.id] = object.record;
   return {
     cellSize,
     crop: readCropMode(values[ISO_TARGETS.crop]),
     gridSize: getIsoGridSize(values),
+    heights: getIsoReliefLayers(state).heights,
+    hideHiddenLines: values[ISO_TARGETS.hideHiddenLines] === true,
     includeGrid: values[ISO_TARGETS.includeGrid] === true,
+    levelHeight: (cellSize * levelPercent) / 100,
     objects,
     padding: Math.max(0, finiteNumber(values[ISO_TARGETS.padding], ISO_DEFAULTS.padding)),
     placements: readIsoPlacements(values),
-    shadow: {
-      blur: Math.max(0, finiteNumber(values[ISO_TARGETS.shadowBlur], ISO_DEFAULTS.shadowBlur)),
-      offset: {
-        x: (clamp(finiteNumber(offset.x, 0), -1, 1) * cellSize) / 2,
-        y: (clamp(finiteNumber(offset.y, 0), -1, 1) * cellSize) / 2,
-      },
-      opacity:
-        clamp(finiteNumber(values[ISO_TARGETS.shadowOpacity], ISO_DEFAULTS.shadowOpacity), 0, 100) / 100,
-    },
+    showPieces: values[ISO_TARGETS.showPieces] !== false,
   };
 }
 
@@ -320,6 +416,26 @@ export function createIsoPlacementsCommand(
     target: ISO_TARGETS.placements,
     type: "controls.setValue",
     value: { items: items.map((item) => ({ ...item })) },
+  };
+}
+
+export function createIsoReliefEditsCommand(
+  edits: IsoHeightMap,
+  label: string,
+  history: Readonly<{ group?: string; mode: "merge" | "record" }> = { mode: "record" },
+): ToolcraftCommand {
+  const cells = Object.fromEntries(
+    [...edits]
+      .filter(([, offset]) => Math.abs(offset) > 1e-3)
+      .sort(([left], [right]) => (left < right ? -1 : left > right ? 1 : 0)),
+  );
+  return {
+    history: history.mode,
+    ...(history.group ? { historyGroup: history.group } : {}),
+    label,
+    target: ISO_TARGETS.reliefEdits,
+    type: "controls.setValue",
+    value: { cells },
   };
 }
 

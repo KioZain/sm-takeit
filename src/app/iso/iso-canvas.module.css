@@ -31,6 +31,10 @@
   cursor: pointer;
 }
 
+.fieldHandle[data-iso-tool="height"] {
+  cursor: ns-resize;
+}
+
 .overlay {
   position: absolute;
   inset: 0;
@@ -60,4 +64,10 @@
   fill: color-mix(in oklab, var(--link) 10%, transparent);
   stroke: var(--link);
   stroke-dasharray: 6 4;
+}
+
+/* Magnet guide: columns whose height the dragged column snapped to. */
+.snapGuide {
+  fill: color-mix(in oklab, var(--inspect) 18%, transparent);
+  stroke: var(--inspect);
 }

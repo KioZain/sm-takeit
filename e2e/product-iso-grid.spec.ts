@@ -1,38 +1,41 @@
 import type { Locator, Page } from "@playwright/test";
 
 import { createToolcraftBrowserProofSession } from "./browser-proof-session";
-import { expectToolcraftSegmentedControlCellsPreservePadding } from "./performance-control-layout-helpers";
+import { expectToolcraftDiscreteSliderMarkers } from "./performance-control-layout-helpers";
 import { expectToolcraftProductObservableToChange } from "./product-observable-helpers";
-import { ISO_PRODUCT_SVG, openIsoApp } from "./product-iso-test-support";
+import { holdIsoSliderAt, ISO_PRODUCT_SVG, openIsoApp } from "./product-iso-test-support";
 import { expect, test } from "./toolcraft-product-test";
 
-function gridLines(page: Page): Locator {
-  return page.locator(`${ISO_PRODUCT_SVG} [data-iso-layer="grid"] line`);
+/** The dashed guide path; `data-iso-grid-segments` counts its edges. */
+function gridGuide(page: Page): Locator {
+  return page.locator(`${ISO_PRODUCT_SVG} [data-iso-layer="grid"] [data-iso-grid-segments]`);
 }
 
-test("browser acceptance: grid preset rebuilds the field", async ({ page }) => {
+// A flat N×N field has 2·N·(N + 1) guide edges.
+const segmentsFor = (size: number) => String(2 * size * (size + 1));
+
+test("browser acceptance: grid size slider rebuilds the field", async ({ page }) => {
   await openIsoApp(page);
   const session = await createToolcraftBrowserProofSession(page);
-  await expect(gridLines(page)).toHaveCount(14);
+  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(6));
+  await expectToolcraftDiscreteSliderMarkers(page, "grid.size");
 
-  await expectToolcraftSegmentedControlCellsPreservePadding(page, "Size", {
-    requirementId: "grid.preset",
-    target: "grid.preset",
-  });
+  // Drag to the maximum and keep holding: the field is rebuilt mid-drag.
   await expectToolcraftProductObservableToChange(
     session,
-    session.controlAction("grid.preset", async (control) => {
-      await control.getByRole("button", { name: "12×12" }).click();
+    session.controlAction("grid.size", async (control, currentPage) => {
+      await holdIsoSliderAt(control, currentPage, 1);
     }),
-    { requirementId: "grid.preset", selector: ISO_PRODUCT_SVG },
+    { requirementId: "grid.size", selector: ISO_PRODUCT_SVG },
   );
-  await expect(gridLines(page)).toHaveCount(26);
+  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(8));
+  await page.mouse.up();
 
-  await page
-    .locator('[data-toolcraft-control-target="grid.preset"]')
-    .getByRole("button", { name: "6×6" })
-    .click();
-  await expect(gridLines(page)).toHaveCount(14);
+  const control = page.locator('[data-toolcraft-control-target="grid.size"]');
+  await holdIsoSliderAt(control, page, 0);
+  await page.mouse.up();
+  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(2));
+  await expect(control).toContainText("2 cells");
 });
 
 test("browser acceptance: cell size resizes the field live", async ({ page }) => {
@@ -44,18 +47,7 @@ test("browser acceptance: cell size resizes the field live", async ({ page }) =>
   await expectToolcraftProductObservableToChange(
     session,
     session.controlAction("grid.cellSize", async (control, currentPage) => {
-      const input = control.locator('input[type="range"]');
-      const min = Number(await input.getAttribute("min"));
-      const max = Number(await input.getAttribute("max"));
-      const value = Number(await input.inputValue());
-      const track = control.locator('[data-slot="slider"]').first();
-      const box = await track.boundingBox();
-      if (!box) throw new Error("The Cell slider track has no layout box.");
-      const startX = box.x + (box.width * (value - min)) / (max - min);
-      const y = box.y + box.height / 2;
-      await currentPage.mouse.move(startX, y);
-      await currentPage.mouse.down();
-      await currentPage.mouse.move(startX + box.width * 0.25, y, { steps: 8 });
+      await holdIsoSliderAt(control, currentPage, 0.75);
     }),
     { requirementId: "grid.cellSize", selector: ISO_PRODUCT_SVG },
   );
@@ -67,7 +59,7 @@ test("browser acceptance: cell size resizes the field live", async ({ page }) =>
 test("browser acceptance: grid visibility hides and shows the dashed field", async ({ page }) => {
   await openIsoApp(page);
   const session = await createToolcraftBrowserProofSession(page);
-  await expect(gridLines(page)).toHaveCount(14);
+  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(6));
 
   await expectToolcraftProductObservableToChange(
     session,
@@ -76,11 +68,11 @@ test("browser acceptance: grid visibility hides and shows the dashed field", asy
     }),
     { requirementId: "grid.visible", selector: ISO_PRODUCT_SVG },
   );
-  await expect(gridLines(page)).toHaveCount(0);
+  await expect(gridGuide(page)).toHaveCount(0);
 
   await page
     .locator('[data-toolcraft-control-target="grid.visible"]')
     .getByRole("switch", { name: "Visible" })
     .click();
-  await expect(gridLines(page)).toHaveCount(14);
+  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(6));
 });

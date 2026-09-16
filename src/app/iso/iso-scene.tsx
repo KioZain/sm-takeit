@@ -1,34 +1,28 @@
 import * as React from "react";
 
-import {
-  expandRect,
-  projectIso,
-  unionRects,
-  type IsoPoint,
-  type IsoSceneModel,
-} from "./iso-geometry";
+import type { IsoColumnFace, IsoPoint, IsoSceneModel, IsoSegment } from "./iso-geometry";
 
 export const ISO_GRID_STROKE = "rgba(120, 120, 120, 0.8)";
 export const ISO_GRID_DASH = [4, 3] as const;
-export const ISO_SHADOW_COLOR = "#000000";
+/** Barely visible column side tints; the right side is a touch darker for depth. */
+export const ISO_FACE_FILLS = {
+  left: "rgba(128, 128, 128, 0.07)",
+  right: "rgba(128, 128, 128, 0.13)",
+} as const;
 
-export type IsoSceneAppearance = Readonly<{
-  cellSize: number;
-  gridSize: number;
-  shadowBlur: number;
-  shadowOpacity: number;
-  showGrid: boolean;
-}>;
+export type IsoSceneAppearance = Readonly<{ showGrid: boolean }>;
 
-export type IsoGridLine = Readonly<{ from: IsoPoint; to: IsoPoint }>;
+export function toSegmentPath(segments: readonly IsoSegment[]): string {
+  return segments
+    .map(
+      (segment) =>
+        `M${round(segment.from.x)} ${round(segment.from.y)}L${round(segment.to.x)} ${round(segment.to.y)}`,
+    )
+    .join("");
+}
 
-export function getIsoGridLines(gridSize: number, cellSize: number): IsoGridLine[] {
-  const lines: IsoGridLine[] = [];
-  for (let index = 0; index <= gridSize; index += 1) {
-    lines.push({ from: projectIso(index, 0, cellSize), to: projectIso(index, gridSize, cellSize) });
-    lines.push({ from: projectIso(0, index, cellSize), to: projectIso(gridSize, index, cellSize) });
-  }
-  return lines;
+export function getFacePath(faces: readonly IsoColumnFace[], side: IsoColumnFace["side"]): string {
+  return toSvgPath(faces.filter((face) => face.side === side).map((face) => face.points));
 }
 
 export function toSvgPath(polygons: readonly (readonly IsoPoint[])[]): string {
@@ -56,65 +50,31 @@ type IsoSceneLayersProps = Readonly<{
   model: IsoSceneModel;
 }>;
 
-/** Dashed field grid, one blurred shadow layer, then objects back to front. */
+/** Dashed grid and column guide, then objects back to front. */
 export function IsoSceneLayers({
   appearance,
   imageUrls,
   model,
 }: IsoSceneLayersProps): React.JSX.Element {
-  const filterId = `iso-shadow-${React.useId().replace(/[^a-zA-Z0-9]/g, "")}`;
-  const shadowRegion = expandRect(
-    unionRects([model.frame, model.field]) ?? model.frame,
-    Math.max(appearance.shadowBlur * 4, appearance.cellSize),
-  );
-  const showShadows = model.shadowPolygons.length > 0 && appearance.shadowOpacity > 0;
-  const gridLines = appearance.showGrid
-    ? getIsoGridLines(appearance.gridSize, appearance.cellSize)
-    : [];
-
   return (
     <>
       {appearance.showGrid ? (
         <g data-iso-layer="grid" fill="none" stroke={ISO_GRID_STROKE}>
-          {gridLines.map((line, index) => (
-            <line
-              key={index}
-              strokeDasharray={ISO_GRID_DASH.join(" ")}
-              strokeWidth={1}
-              vectorEffect="non-scaling-stroke"
-              x1={line.from.x}
-              x2={line.to.x}
-              y1={line.from.y}
-              y2={line.to.y}
-            />
-          ))}
-        </g>
-      ) : null}
-      {showShadows && appearance.shadowBlur > 0 ? (
-        <defs>
-          <filter
-            filterUnits="userSpaceOnUse"
-            height={shadowRegion.height}
-            id={filterId}
-            width={shadowRegion.width}
-            x={shadowRegion.x}
-            y={shadowRegion.y}
-          >
-            <feGaussianBlur stdDeviation={appearance.shadowBlur} />
-          </filter>
-        </defs>
-      ) : null}
-      {showShadows ? (
-        <g
-          data-iso-layer="shadows"
-          filter={appearance.shadowBlur > 0 ? `url(#${filterId})` : undefined}
-          opacity={appearance.shadowOpacity}
-        >
-          <path d={toSvgPath(model.shadowPolygons)} fill={ISO_SHADOW_COLOR} />
+          <g data-iso-column-faces={model.guideFaces.length} stroke="none">
+            <path d={getFacePath(model.guideFaces, "left")} fill={ISO_FACE_FILLS.left} />
+            <path d={getFacePath(model.guideFaces, "right")} fill={ISO_FACE_FILLS.right} />
+          </g>
+          <path
+            d={toSegmentPath(model.guide)}
+            data-iso-grid-segments={model.guide.length}
+            strokeDasharray={ISO_GRID_DASH.join(" ")}
+            strokeWidth={1}
+            vectorEffect="non-scaling-stroke"
+          />
         </g>
       ) : null}
       <g data-iso-layer="objects">
-        {model.items.map((item) => {
+        {(model.piecesVisible ? model.items : []).map((item) => {
           const url = imageUrls.get(item.placement.objectId);
           return item.imageRect && url ? (
             <image

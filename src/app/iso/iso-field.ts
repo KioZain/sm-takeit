@@ -4,25 +4,50 @@ import {
   cellRectContains,
   eraseCellRect,
   findPlacementAtCell,
+  getCellHeight,
   placeObject,
-  projectIso,
-  unprojectIso,
   type IsoCell,
   type IsoCellRect,
+  type IsoHeightMap,
   type IsoPlacement,
   type IsoPoint,
   type IsoRect,
   type IsoSceneModel,
 } from "./iso-geometry";
-import { createIsoPlacementsCommand, type IsoLibraryObject, type IsoTool } from "./iso-state";
+import {
+  getColumnAtPoint,
+  getNearestColumn,
+  getRaisedFootprintDiamond,
+  type IsoColumnSpace,
+} from "./iso-columns";
+import {
+  dragColumnHeights,
+  getLinkedCells,
+  getRectCells,
+  ISO_SNAP_DISTANCE_PX,
+  toReliefEdits,
+  type IsoHeightDrag,
+} from "./iso-relief";
+import {
+  createIsoReliefEditsCommand,
+  createIsoPlacementsCommand,
+  type IsoLibraryObject,
+  type IsoTool,
+} from "./iso-state";
 
 export type IsoFieldContext = Readonly<{
   active: IsoLibraryObject | null;
   cellSize: number;
   gridSize: number;
   model: IsoSceneModel;
+  /** Hidden pieces outside the current grid, appended to every edit. */
+  offGrid: readonly IsoPlacement[];
   placements: readonly IsoPlacement[];
+  /** Live pattern levels and the hand edits over them. */
+  relief: Readonly<{ edits: IsoHeightMap; pattern: IsoHeightMap }>;
   selection: IsoCellRect | null;
+  /** Grid and final column heights used for hit tests and raised outlines. */
+  space: IsoColumnSpace;
   tool: IsoTool;
 }>;
 
@@ -47,21 +72,27 @@ export function toIsoFramePoint(
   };
 }
 
-export function clampIsoCell(point: IsoPoint, gridSize: number, cellSize: number): IsoCell {
-  const grid = unprojectIso(point, cellSize);
-  return {
-    col: Math.min(gridSize - 1, Math.max(0, Math.floor(grid.x))),
-    row: Math.min(gridSize - 1, Math.max(0, Math.floor(grid.y))),
-  };
+/** The column under the point, or null off the field. */
+export function getIsoCellAt(field: IsoFieldContext, point: IsoPoint): IsoCell | null {
+  return getColumnAtPoint(point, field.space);
 }
 
-export function getIsoCellRectPolygon(rect: IsoCellRect, cellSize: number): IsoPoint[] {
-  return [
-    projectIso(rect.col0, rect.row0, cellSize),
-    projectIso(rect.col1 + 1, rect.row0, cellSize),
-    projectIso(rect.col1 + 1, rect.row1 + 1, cellSize),
-    projectIso(rect.col0, rect.row1 + 1, cellSize),
-  ];
+/** The column under the point, clamped to the field for drags that leave it. */
+export function clampIsoCell(field: IsoFieldContext, point: IsoPoint): IsoCell {
+  return getNearestColumn(point, field.space);
+}
+
+/** Raised top outlines of every cell in the rectangle. */
+export function getIsoCellRectTops(rect: IsoCellRect, space: IsoColumnSpace): IsoPoint[][] {
+  return getRectCells(rect).map((cell) =>
+    getRaisedFootprintDiamond(
+      cell.col,
+      cell.row,
+      "1x1",
+      getCellHeight(space.heights, cell.col, cell.row),
+      space,
+    ),
+  );
 }
 
 function rectContainsPoint(rect: IsoRect, point: IsoPoint): boolean {
@@ -107,21 +138,109 @@ export function getIsoCellCommand(
       cell.row,
       field.active.record.footprint,
       field.gridSize,
+      field.space.heights,
     );
-    return next ? createIsoPlacementsCommand(next, "Place object") : null;
+    return next ? createIsoPlacementsCommand([...next, ...field.offGrid], "Place object") : null;
   }
   if (field.tool !== "erase") return null;
   const target = getIsoEraseTarget(field, cell, point);
   if (target.kind === "selection") {
-    return createIsoPlacementsCommand(eraseCellRect(field.placements, target.rect), "Erase section");
+    return createIsoPlacementsCommand(
+      [...eraseCellRect(field.placements, target.rect), ...field.offGrid],
+      "Erase section",
+    );
   }
   if (target.kind === "placement") {
     return createIsoPlacementsCommand(
-      field.placements.filter((placement) => placement.id !== target.id),
+      [...field.placements.filter((placement) => placement.id !== target.id), ...field.offGrid],
       "Erase object",
     );
   }
   return null;
+}
+
+/** Columns a height drag moves: the selection when pressed inside it, else the pressed column. */
+export function startIsoHeightDrag(field: IsoFieldContext, cell: IsoCell): IsoHeightDrag {
+  const base =
+    field.selection && cellRectContains(field.selection, cell.col, cell.row)
+      ? getRectCells(field.selection)
+      : [cell];
+  return {
+    cells: getLinkedCells(base, field.placements).map((linked) => ({
+      ...linked,
+      start: getCellHeight(field.space.heights, linked.col, linked.row),
+    })),
+    origin: getCellHeight(field.space.heights, cell.col, cell.row),
+  };
+}
+
+export type IsoHeightGesture = Readonly<{
+  drag: IsoHeightDrag;
+  group: string;
+  pointerId: number;
+  startY: number;
+  /** Field-local units per screen pixel, fixed for the whole gesture. */
+  unitsPerPixel: number;
+}>;
+
+export type IsoHeightDragResult = Readonly<{
+  /** Edits command that gives the moved columns their new heights. */
+  command: ToolcraftCommand;
+  guides: readonly IsoCell[];
+  level: number;
+}>;
+
+function toEditsCommand(
+  field: IsoFieldContext,
+  drag: IsoHeightDrag,
+  heights: IsoHeightMap,
+  label: string,
+  history?: Readonly<{ group?: string; mode: "merge" | "record" }>,
+): ToolcraftCommand {
+  const edits = toReliefEdits(field.relief.edits, field.relief.pattern, heights, drag.cells);
+  return createIsoReliefEditsCommand(edits, label, history);
+}
+
+/** Result of dragging `clientY` screen pixels from the gesture start (up is higher). */
+export function moveIsoHeightDrag(
+  field: IsoFieldContext,
+  gesture: IsoHeightGesture,
+  clientY: number,
+  modifiers: Readonly<{ altKey: boolean; shiftKey: boolean }>,
+): IsoHeightDragResult {
+  const levelPx = Math.max(1e-6, field.space.levelHeight);
+  const deltaLevels = ((gesture.startY - clientY) * gesture.unitsPerPixel) / levelPx;
+  const result = dragColumnHeights(field.space.heights, gesture.drag, deltaLevels, {
+    gridSize: field.gridSize,
+    mode: modifiers.altKey ? "free" : modifiers.shiftKey ? "whole" : "magnet",
+    threshold: (ISO_SNAP_DISTANCE_PX * gesture.unitsPerPixel) / levelPx,
+  });
+  return {
+    command: toEditsCommand(field, gesture.drag, result.heights, "Adjust column height", {
+      group: gesture.group,
+      mode: "merge",
+    }),
+    guides: result.guides,
+    level: result.level,
+  };
+}
+
+/** Keyboard height step: one whole level up or down for the cursor column or selection. */
+export function getIsoHeightStepCommand(
+  field: IsoFieldContext,
+  cell: IsoCell,
+  direction: 1 | -1,
+): ToolcraftCommand | null {
+  const drag = startIsoHeightDrag(field, cell);
+  const target = direction > 0 ? Math.floor(drag.origin + 1e-3) + 1 : Math.ceil(drag.origin - 1e-3) - 1;
+  const result = dragColumnHeights(field.space.heights, drag, target - drag.origin, {
+    gridSize: field.gridSize,
+    mode: "free",
+    threshold: 0,
+  });
+  return result.level === drag.origin
+    ? null
+    : toEditsCommand(field, drag, result.heights, direction > 0 ? "Raise columns" : "Lower columns");
 }
 
 export function moveIsoSelectDrag(

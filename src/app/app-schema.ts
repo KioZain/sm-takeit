@@ -17,11 +17,41 @@ import {
   ISO_DEFAULTS,
   ISO_EMPTY_LIBRARY,
   ISO_EMPTY_PLACEMENTS,
+  ISO_GRID_SIZE_RANGE,
+  ISO_LEVEL_HEIGHT_RANGE,
+  ISO_RELIEF_ACTIONS,
   ISO_LIBRARY_MAX_OBJECTS,
   ISO_TARGETS,
 } from "./iso/iso-state";
 
 const always = { mode: "always" } as const;
+const RAISED_PATTERNS = [
+  "corner-diagonal",
+  "corner-rings",
+  "edge",
+  "pyramid",
+  "checker",
+  "alternate-rows",
+  "alternate-cols",
+] as const;
+const usesPeak = {
+  all: [{ oneOf: RAISED_PATTERNS, target: ISO_TARGETS.reliefPattern }],
+  mode: "conditional",
+} as const;
+const usesCorner = {
+  all: [{ oneOf: ["corner-diagonal", "corner-rings"], target: ISO_TARGETS.reliefPattern }],
+  mode: "conditional",
+} as const;
+const usesEdge = {
+  all: [{ equals: "edge", target: ISO_TARGETS.reliefPattern }],
+  mode: "conditional",
+} as const;
+const usesFalloff = {
+  all: [
+    { oneOf: ["corner-diagonal", "corner-rings", "edge", "pyramid"], target: ISO_TARGETS.reliefPattern },
+  ],
+  mode: "conditional",
+} as const;
 const cropsToFrame = {
   all: [{ oneOf: ["field", "content"], target: ISO_TARGETS.crop }],
   mode: "conditional",
@@ -67,19 +97,22 @@ export const appSchema = defineToolcraft({
           },
           {
             controls: {
-              preset: {
+              size: {
                 applicability: always,
-                defaultValue: ISO_DEFAULTS.gridPreset,
-                description: "Switching the preset rebuilds the field; pieces outside it are hidden.",
+                defaultValue: ISO_DEFAULTS.gridSize,
+                description:
+                  "Cells per side, from 2×2 to 8×8. Pieces and column heights outside the field are kept and return when it grows.",
                 label: "Size",
-                options: [
-                  { label: "6×6", value: "6" },
-                  { label: "12×12", value: "12" },
-                ],
-                orderRole: "mode",
+                max: ISO_GRID_SIZE_RANGE.max,
+                min: ISO_GRID_SIZE_RANGE.min,
+                orderRole: "primary",
                 performanceRole: "responsiveness",
-                target: ISO_TARGETS.gridPreset,
-                type: "segmented",
+                sliderValueKind: "discrete",
+                step: 1,
+                target: ISO_TARGETS.gridSize,
+                type: "slider",
+                unit: "cells",
+                variant: "discrete",
               } satisfies ToolcraftControlSchema,
               cellSize: {
                 applicability: always,
@@ -96,6 +129,21 @@ export const appSchema = defineToolcraft({
                 type: "slider",
                 unit: "px",
               } satisfies ToolcraftControlSchema,
+              levelHeight: {
+                applicability: always,
+                defaultValue: ISO_DEFAULTS.levelHeight,
+                description: "Height of one column level as a share of the cell width.",
+                label: "Level",
+                max: ISO_LEVEL_HEIGHT_RANGE.max,
+                min: ISO_LEVEL_HEIGHT_RANGE.min,
+                orderRole: "detail",
+                performanceRole: "responsiveness",
+                sliderValueKind: "continuous",
+                step: 1,
+                target: ISO_TARGETS.levelHeight,
+                type: "slider",
+                unit: "%",
+              } satisfies ToolcraftControlSchema,
               visible: {
                 applicability: always,
                 defaultValue: ISO_DEFAULTS.gridVisible,
@@ -105,8 +153,22 @@ export const appSchema = defineToolcraft({
                 target: ISO_TARGETS.gridVisible,
                 type: "switch",
               } satisfies ToolcraftControlSchema,
+              hideHiddenLines: {
+                applicability: always,
+                defaultValue: ISO_DEFAULTS.hideHiddenLines,
+                description:
+                  "Shows raised columns as solid blocks: grid lines and fills behind them are hidden, leaving only the outer outlines.",
+                label: "Solid",
+                orderRole: "detail",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.hideHiddenLines,
+                type: "switch",
+              } satisfies ToolcraftControlSchema,
             },
             id: "grid",
+            layoutGroups: [
+              { columns: 2, controls: ["visible", "hideHiddenLines"], layout: "inline" },
+            ],
             title: "Grid",
           },
           {
@@ -151,12 +213,13 @@ export const appSchema = defineToolcraft({
                 applicability: always,
                 defaultValue: ISO_DEFAULTS.tool,
                 description:
-                  "Place puts the active object on the clicked cell, Select drags a section, Erase removes a clicked object or the selected section.",
+                  "Place puts the active object on a cell, Select drags a section, Erase removes an object or the section, Height drags columns up and down (magnet snaps to matching columns; Shift uses whole levels, Alt moves freely).",
                 label: "Tool",
                 options: [
                   { label: "Place", value: "place" },
                   { label: "Select", value: "select" },
                   { label: "Erase", value: "erase" },
+                  { label: "Height", value: "height" },
                 ],
                 orderRole: "mode",
                 performanceRole: "responsiveness",
@@ -165,13 +228,14 @@ export const appSchema = defineToolcraft({
               } satisfies ToolcraftControlSchema,
               commands: {
                 actions: [
-                  { label: "Fill section", value: ISO_ACTIONS.fillSelection },
-                  { label: "Fill field", value: ISO_ACTIONS.fillField },
-                  { label: "Clear field", value: ISO_ACTIONS.clearField },
+                  { icon: "wand-sparkles", label: "Fill section", value: ISO_ACTIONS.fillSelection },
+                  { icon: "wand-sparkles", label: "Fill field", value: ISO_ACTIONS.fillField },
+                  { icon: "eraser", label: "Clear field", value: ISO_ACTIONS.clearField },
                 ],
                 applicability: always,
                 label: false,
                 orderRole: "action",
+                performanceRole: "responsiveness",
                 target: ISO_TARGETS.commands,
                 type: "actions",
               } satisfies ToolcraftControlSchema,
@@ -191,53 +255,102 @@ export const appSchema = defineToolcraft({
           },
           {
             controls: {
-              opacity: {
+              pattern: {
                 applicability: always,
-                defaultValue: ISO_DEFAULTS.shadowOpacity,
-                label: "Opacity",
-                max: 100,
-                min: 0,
+                defaultValue: ISO_DEFAULTS.reliefPattern,
+                description:
+                  "Raises the columns live as you change the settings. Height tool edits are kept on top of the pattern.",
+                label: "Pattern",
+                options: [
+                  { label: "Flat", value: "flat" },
+                  { label: "Corner, diagonal", value: "corner-diagonal" },
+                  { label: "Corner, rings", value: "corner-rings" },
+                  { label: "Edge slope", value: "edge" },
+                  { label: "Pyramid", value: "pyramid" },
+                  { label: "Checker", value: "checker" },
+                  { label: "Alternate rows", value: "alternate-rows" },
+                  { label: "Alternate columns", value: "alternate-cols" },
+                ],
+                orderRole: "mode",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.reliefPattern,
+                type: "select",
+              } satisfies ToolcraftControlSchema,
+              corner: {
+                applicability: usesCorner,
+                defaultValue: ISO_DEFAULTS.reliefCorner,
+                description: "Field corner that holds the peak.",
+                label: "Peak",
+                options: [
+                  { label: "Top", value: "top" },
+                  { label: "Right", value: "right" },
+                  { label: "Bottom", value: "bottom" },
+                  { label: "Left", value: "left" },
+                ],
+                orderRole: "primary",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.reliefCorner,
+                type: "segmented",
+              } satisfies ToolcraftControlSchema,
+              edge: {
+                applicability: usesEdge,
+                defaultValue: ISO_DEFAULTS.reliefEdge,
+                description: "Field side the slope starts from.",
+                label: "Side",
+                options: [
+                  { label: "↖", value: "top-left" },
+                  { label: "↗", value: "top-right" },
+                  { label: "↘", value: "bottom-right" },
+                  { label: "↙", value: "bottom-left" },
+                ],
+                orderRole: "primary",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.reliefEdge,
+                type: "segmented",
+              } satisfies ToolcraftControlSchema,
+              max: {
+                applicability: usesPeak,
+                defaultValue: ISO_DEFAULTS.reliefMax,
+                label: "Peak height",
+                max: 8,
+                min: 1,
                 orderRole: "strength",
                 performanceRole: "responsiveness",
-                sliderValueKind: "continuous",
+                sliderValueKind: "discrete",
                 step: 1,
-                target: ISO_TARGETS.shadowOpacity,
+                target: ISO_TARGETS.reliefMax,
                 type: "slider",
-                unit: "%",
+                unit: "levels",
+                variant: "discrete",
               } satisfies ToolcraftControlSchema,
-              blur: {
-                applicability: always,
-                defaultValue: ISO_DEFAULTS.shadowBlur,
-                label: "Blur",
-                max: 40,
-                min: 0,
+              step: {
+                applicability: usesFalloff,
+                defaultValue: ISO_DEFAULTS.reliefStep,
+                description: "How many cells the slope runs before dropping one level.",
+                label: "Falloff",
+                max: 4,
+                min: 1,
                 orderRole: "detail",
                 performanceRole: "responsiveness",
-                sliderValueKind: "continuous",
-                step: 0.5,
-                target: ISO_TARGETS.shadowBlur,
+                sliderValueKind: "discrete",
+                step: 1,
+                target: ISO_TARGETS.reliefStep,
                 type: "slider",
-                unit: "px",
+                unit: "cells",
+                variant: "discrete",
               } satisfies ToolcraftControlSchema,
-            },
-            id: "shadow",
-            title: "Shadow",
-          },
-          {
-            controls: {
-              offset: {
+              commands: {
+                actions: [{ icon: "rotate-ccw", label: "Reset edits", value: ISO_RELIEF_ACTIONS.resetEdits }],
                 applicability: always,
-                defaultValue: ISO_DEFAULTS.shadowOffset,
-                description: "Moves every shadow by up to half a cell in each direction.",
                 label: false,
-                orderRole: "spatial",
+                orderRole: "action",
                 performanceRole: "responsiveness",
-                target: ISO_TARGETS.shadowOffset,
-                type: "vector",
+                target: ISO_TARGETS.reliefCommands,
+                type: "actions",
               } satisfies ToolcraftControlSchema,
             },
-            id: "shadow-offset",
-            title: "Shadow Offset",
+            id: "relief",
+            title: "Relief",
           },
           {
             controls: {
@@ -271,6 +384,17 @@ export const appSchema = defineToolcraft({
                 type: "slider",
                 unit: "px",
               } satisfies ToolcraftControlSchema,
+              showPieces: {
+                applicability: always,
+                defaultValue: ISO_DEFAULTS.showPieces,
+                description:
+                  "Hides every roll on the canvas, in the card previews, and in the PNG. Pieces stay placed. Turn on Grid in export to save only the grid.",
+                label: "Show rolls",
+                orderRole: "detail",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.showPieces,
+                type: "switch",
+              } satisfies ToolcraftControlSchema,
               includeGrid: {
                 applicability: always,
                 defaultValue: ISO_DEFAULTS.includeGrid,
@@ -287,6 +411,11 @@ export const appSchema = defineToolcraft({
         ],
         title: "Sushi Set",
       },
+    },
+    persistence: {
+      // Hand height edits are canvas-owned values without a panel control.
+      additionalValueTargets: [ISO_TARGETS.reliefEdits],
+      storage: "localStorage",
     },
     toolbar: {
       history: true,

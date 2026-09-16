@@ -96,6 +96,24 @@ export async function uploadIsoRolls(
   await expect(page.locator("[data-iso-object]")).toHaveCount(rolls.length);
 }
 
+/**
+ * Presses a slider thumb and drags it to `fraction` of the track without
+ * releasing, so callers can assert live output before `page.mouse.up()`.
+ */
+export async function holdIsoSliderAt(control: Locator, page: Page, fraction: number): Promise<void> {
+  const input = control.locator('input[type="range"]');
+  const min = Number(await input.getAttribute("min"));
+  const max = Number(await input.getAttribute("max"));
+  const value = Number(await input.inputValue());
+  const track = control.locator('[data-slot="slider"]').first();
+  const box = await track.boundingBox();
+  if (!box) throw new Error("The slider track has no layout box.");
+  const y = box.y + box.height / 2;
+  await page.mouse.move(box.x + (box.width * (value - min)) / (max - min), y);
+  await page.mouse.down();
+  await page.mouse.move(box.x + box.width * fraction, y, { steps: 8 });
+}
+
 export function isoFieldHandle(page: Page): Locator {
   return page.locator('[data-testid="iso-field"]');
 }

@@ -45,25 +45,36 @@ export type IsoObjectRecord = Readonly<{
 
 export type IsoCropMode = "content" | "field" | "off";
 
-export type IsoShadowSettings = Readonly<{
-  blur: number;
-  offset: IsoPoint;
-  opacity: number;
-}>;
+/** Column heights in levels, keyed by `heightKey(col, row)`; missing cells are 0. */
+export type IsoHeightMap = ReadonlyMap<string, number>;
+
+export type IsoSegment = Readonly<{ from: IsoPoint; to: IsoPoint }>;
+
+/** Exposed side face of a raised column; `left` faces +row, `right` faces +col. */
+export type IsoColumnFace = Readonly<{ points: readonly IsoPoint[]; side: "left" | "right" }>;
 
 export type IsoSceneInput = Readonly<{
   cellSize: number;
   crop: IsoCropMode;
   gridSize: number;
+  heights: IsoHeightMap;
+  /** Clip guide lines and faces hidden behind raised columns. */
+  hideHiddenLines: boolean;
   includeGrid: boolean;
+  /** Screen height of one column level in px. */
+  levelHeight: number;
   objects: Readonly<Record<string, IsoObjectRecord>>;
   padding: number;
   placements: readonly IsoPlacement[];
-  shadow: IsoShadowSettings;
+  /** When false, pieces stay editable but are neither drawn nor exported. */
+  showPieces: boolean;
 }>;
 
 export type IsoSceneItem = Readonly<{
+  /** Footprint outline lifted to the top of its columns. */
   diamond: readonly IsoPoint[];
+  /** Column height under the piece, in px. */
+  elevation: number;
   imageRect: IsoRect | null;
   placement: IsoPlacement;
   record: IsoObjectRecord;
@@ -72,19 +83,35 @@ export type IsoSceneItem = Readonly<{
 export type IsoSceneModel = Readonly<{
   /** Crop/scene frame in field-local coordinates, integer sized. */
   frame: IsoRect;
+  /** Bounds of the grid guide, including raised columns. */
   field: IsoRect;
+  /** Dashed grid and column guide segments; never part of the set itself. */
+  guide: readonly IsoSegment[];
+  /** Translucent side faces of raised columns, drawn with the guide. */
+  guideFaces: readonly IsoColumnFace[];
   /** Items in back-to-front drawing order. */
   items: readonly IsoSceneItem[];
-  shadowPolygons: readonly (readonly IsoPoint[])[];
+  /** Whether piece images are drawn and count toward the content frame. */
+  piecesVisible: boolean;
   /** Field-local point placed at the world origin. */
   center: IsoPoint;
   /** Frame translated to world coordinates (centered on the origin). */
   worldFrame: IsoRect;
 }>;
 
-const GRID_STROKE_MARGIN = 2;
-/** A Gaussian blur is visually exhausted after roughly three standard deviations. */
-const BLUR_EXTENT_FACTOR = 3;
+const HEIGHT_TOLERANCE = 1e-3;
+
+export function heightKey(col: number, row: number): string {
+  return `${col},${row}`;
+}
+
+export function getCellHeight(heights: IsoHeightMap, col: number, row: number): number {
+  return heights.get(heightKey(col, row)) ?? 0;
+}
+
+export function isSameHeight(left: number, right: number): boolean {
+  return Math.abs(left - right) < HEIGHT_TOLERANCE;
+}
 
 export function getFootprintSpan(footprint: IsoFootprint): Readonly<{
   cols: number;
@@ -167,6 +194,7 @@ export function getPlacementImageRect(
   placement: IsoPlacement,
   record: IsoObjectRecord,
   cellSize: number,
+  elevation = 0,
 ): IsoRect | null {
   if (!record.size || record.size.width <= 0 || record.size.height <= 0) {
     return null;
@@ -184,7 +212,7 @@ export function getPlacementImageRect(
     height,
     width,
     x: anchor.x - record.anchor.x * width,
-    y: anchor.y - record.anchor.y * height,
+    y: anchor.y - elevation - record.anchor.y * height,
   };
 }
 
@@ -197,6 +225,14 @@ export function getPlacementCells(placement: Pick<IsoPlacement, "col" | "footpri
     }
   }
   return cells;
+}
+
+/** Heights of the footprint's cells, in levels. */
+export function getFootprintHeights(
+  placement: Pick<IsoPlacement, "col" | "footprint" | "row">,
+  heights: IsoHeightMap,
+): number[] {
+  return getPlacementCells(placement).map((cell) => getCellHeight(heights, cell.col, cell.row));
 }
 
 function cellKey(col: number, row: number): string {
@@ -249,7 +285,7 @@ export function filterRenderablePlacements(
 
 export type IsoPlacementCheck =
   | Readonly<{ ok: true }>
-  | Readonly<{ ok: false; reason: "occupied" | "outside" }>;
+  | Readonly<{ ok: false; reason: "occupied" | "outside" | "uneven" }>;
 
 export function checkPlacement(
   placements: readonly IsoPlacement[],
@@ -257,9 +293,14 @@ export function checkPlacement(
   row: number,
   footprint: IsoFootprint,
   gridSize: number,
+  heights: IsoHeightMap = new Map(),
 ): IsoPlacementCheck {
   if (!footprintFitsGrid(col, row, footprint, gridSize)) {
     return { ok: false, reason: "outside" };
+  }
+  const [first = 0, ...rest] = getFootprintHeights({ col, footprint, row }, heights);
+  if (rest.some((height) => !isSameHeight(height, first))) {
+    return { ok: false, reason: "uneven" };
   }
   const occupied = new Set(
     placements.flatMap((placement) =>
@@ -279,8 +320,9 @@ export function placeObject(
   row: number,
   footprint: IsoFootprint,
   gridSize: number,
+  heights?: IsoHeightMap,
 ): IsoPlacement[] | null {
-  if (!checkPlacement(placements, col, row, footprint, gridSize).ok) return null;
+  if (!checkPlacement(placements, col, row, footprint, gridSize, heights).ok) return null;
   return [
     ...placements,
     { col, footprint, id: createPlacementId(objectId, col, row), objectId, row },
@@ -312,8 +354,8 @@ export function cellRectContains(rect: IsoCellRect, col: number, row: number): b
 
 /**
  * Tiles the rectangle with the footprint in row-major order from the far
- * corner. Cells where the footprint would overlap or leave the rectangle stay
- * empty.
+ * corner. Cells where the footprint would overlap, stand on uneven columns, or
+ * leave the rectangle stay empty.
  */
 export function fillCellRect(
   placements: readonly IsoPlacement[],
@@ -321,6 +363,7 @@ export function fillCellRect(
   objectId: string,
   footprint: IsoFootprint,
   gridSize: number,
+  heights?: IsoHeightMap,
 ): IsoPlacement[] {
   const bounded = clampCellRect(rect, gridSize);
   if (!bounded) return [...placements];
@@ -328,7 +371,7 @@ export function fillCellRect(
   let next = [...placements];
   for (let row = bounded.row0; row + rows - 1 <= bounded.row1; row += 1) {
     for (let col = bounded.col0; col + cols - 1 <= bounded.col1; col += 1) {
-      next = placeObject(next, objectId, col, row, footprint, gridSize) ?? next;
+      next = placeObject(next, objectId, col, row, footprint, gridSize, heights) ?? next;
     }
   }
   return next;
@@ -429,7 +472,7 @@ export function unionRects(rects: readonly (IsoRect | null)[]): IsoRect | null {
   return { height: bottom - y, width: right - x, x, y };
 }
 
-function toIntegerFrame(rect: IsoRect): IsoRect {
+export function toIntegerFrame(rect: IsoRect): IsoRect {
   const width = Math.max(1, Math.ceil(rect.width - 1e-6));
   const height = Math.max(1, Math.ceil(rect.height - 1e-6));
   return {
@@ -437,64 +480,5 @@ function toIntegerFrame(rect: IsoRect): IsoRect {
     width,
     x: rect.x - (width - rect.width) / 2,
     y: rect.y - (height - rect.height) / 2,
-  };
-}
-
-export function getShadowPolygon(
-  placement: IsoPlacement,
-  cellSize: number,
-  offset: IsoPoint,
-): IsoPoint[] {
-  return getFootprintDiamond(placement.col, placement.row, placement.footprint, cellSize).map(
-    (point) => ({ x: point.x + offset.x, y: point.y + offset.y }),
-  );
-}
-
-export function buildIsoSceneModel(input: IsoSceneInput): IsoSceneModel {
-  const field = getFieldBounds(input.gridSize, input.cellSize);
-  const renderable = filterRenderablePlacements(
-    input.placements,
-    new Set(Object.keys(input.objects)),
-    input.gridSize,
-  );
-  const items = sortPlacementsForDrawing(renderable).map((placement): IsoSceneItem => {
-    const record = input.objects[placement.objectId]!;
-    return {
-      diamond: getFootprintDiamond(placement.col, placement.row, placement.footprint, input.cellSize),
-      imageRect: getPlacementImageRect(placement, record, input.cellSize),
-      placement,
-      record,
-    };
-  });
-  const shadowPolygons =
-    input.shadow.opacity > 0
-      ? items.map((item) => getShadowPolygon(item.placement, input.cellSize, input.shadow.offset))
-      : [];
-  const blurExtent = Math.max(0, input.shadow.blur) * BLUR_EXTENT_FACTOR;
-  const content = unionRects([
-    ...items.map((item) => item.imageRect ?? getPointsBounds(item.diamond)),
-    ...shadowPolygons.map((polygon) => expandRect(getPointsBounds(polygon), blurExtent)),
-  ]);
-  const padding = Math.max(0, input.padding);
-  const rawFrame =
-    input.crop === "content"
-      ? expandRect(unionRects([content ?? field, input.includeGrid ? field : null])!, padding)
-      : input.crop === "field"
-        ? expandRect(unionRects([field, content])!, padding)
-        : expandRect(unionRects([field, content])!, GRID_STROKE_MARGIN);
-  const frame = toIntegerFrame(rawFrame);
-  const center = { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 };
-  return {
-    center,
-    field,
-    frame,
-    items,
-    shadowPolygons,
-    worldFrame: {
-      height: frame.height,
-      width: frame.width,
-      x: frame.x - center.x,
-      y: frame.y - center.y,
-    },
   };
 }

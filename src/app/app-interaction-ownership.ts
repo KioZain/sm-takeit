@@ -98,19 +98,33 @@ export const appInteractionOwnership: readonly ToolcraftInteractionOwnershipEntr
   },
   {
     alternative: {
-      reason: "Dragging shadows on the canvas would compete with the field tools.",
+      reason: "Per-cell number fields in the panel would hide which column is being raised.",
+      surface: "panel",
+    },
+    capability: "direct-spatial-edit",
+    evidence: {
+      detail: "The request asks to raise specific columns by hand with Figma-like magnetic snapping to neighbours.",
+      source: "user-request",
+    },
+    id: "field-height",
+    reason: "The canvas owns column heights because the user drags the column they see.",
+    surface: "canvas",
+    target: canvasPlacementCommand,
+  },
+  {
+    alternative: {
+      reason: "Canvas buttons would put app chrome over the product output.",
       surface: "canvas",
     },
-    capability: "precise-value-entry",
+    capability: "command",
     evidence: {
-      detail: "Usability comparison keeps one global shadow offset as a precise pad value.",
-      source: "usability-analysis",
+      detail: "The request asks for relief patterns that update live, with hand edits kept separately.",
+      source: "user-request",
     },
-    id: "shadow-offset",
-    reason: "The panel owns the global shadow offset for every piece.",
-    selectionScope: { mode: "global" },
+    id: "relief-commands",
+    reason: "The panel owns resetting hand height edits for the field or selection.",
     surface: "panel",
-    target: ISO_TARGETS.shadowOffset,
+    target: ISO_TARGETS.reliefCommands,
   },
   {
     alternative: {

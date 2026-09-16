@@ -1,4 +1,7 @@
-import type { ToolcraftProductExportRenderer } from "@/toolcraft/runtime";
+import type {
+  ToolcraftProductExportFrameContext,
+  ToolcraftProductExportRenderer,
+} from "@/toolcraft/runtime";
 
 import { createIsoImageStore } from "./iso-image-store";
 import {
@@ -6,17 +9,47 @@ import {
   isoExportRasterPass,
   isoObjectImagesPass,
 } from "./iso-pipeline";
-import {
-  getIsoGridLines,
-  ISO_GRID_DASH,
-  ISO_GRID_STROKE,
-  ISO_SHADOW_COLOR,
-} from "./iso-scene";
+import type { IsoPoint, IsoSceneModel } from "./iso-geometry";
+import { ISO_FACE_FILLS, ISO_GRID_DASH, ISO_GRID_STROKE } from "./iso-scene";
 import {
   buildIsoSceneModelFromState,
   getIsoLibraryAssets,
   readIsoSceneInput,
 } from "./iso-state";
+
+type IsoExportContext = ToolcraftProductExportFrameContext["context"];
+
+function fillPolygons(context: IsoExportContext, polygons: readonly (readonly IsoPoint[])[], fill: string) {
+  context.fillStyle = fill;
+  context.beginPath();
+  polygons.forEach((polygon) => {
+    polygon.forEach((point, index) => {
+      if (index === 0) context.moveTo(point.x, point.y);
+      else context.lineTo(point.x, point.y);
+    });
+    context.closePath();
+  });
+  context.fill();
+}
+
+/** Column side tints and the dashed guide, as in the preview. */
+function drawIsoGuide(context: IsoExportContext, model: IsoSceneModel) {
+  context.save();
+  (["left", "right"] as const).forEach((side) => {
+    const faces = model.guideFaces.filter((face) => face.side === side);
+    fillPolygons(context, faces.map((face) => face.points), ISO_FACE_FILLS[side]);
+  });
+  context.strokeStyle = ISO_GRID_STROKE;
+  context.lineWidth = 1;
+  context.setLineDash([...ISO_GRID_DASH]);
+  context.beginPath();
+  model.guide.forEach((segment) => {
+    context.moveTo(segment.from.x, segment.from.y);
+    context.lineTo(segment.to.x, segment.to.y);
+  });
+  context.stroke();
+  context.restore();
+}
 
 /**
  * Draws the same scene model as the SVG preview into the runtime-owned export
@@ -25,7 +58,7 @@ import {
  */
 export const isoRasterFrameRenderer = {
   baseFileName: "sushi-set",
-  async renderFrame({ context, pixelRatio, rendererPipeline, signal, state }) {
+  async renderFrame({ context, rendererPipeline, signal, state }) {
     if (!rendererPipeline) {
       throw new Error("The sushi set renderer pipeline is unavailable.");
     }
@@ -49,7 +82,7 @@ export const isoRasterFrameRenderer = {
           ),
       );
       const images = await Promise.all(
-        model.items.map((item) => {
+        (model.piecesVisible ? model.items : []).map((item) => {
           const resourceRef = resourceRefs.get(item.placement.objectId);
           return item.imageRect && resourceRef ? store.load(resourceRef, signal) : null;
         }),
@@ -60,39 +93,7 @@ export const isoRasterFrameRenderer = {
       try {
         context.translate(-model.center.x, -model.center.y);
 
-        if (input.includeGrid) {
-          context.save();
-          context.strokeStyle = ISO_GRID_STROKE;
-          context.lineWidth = 1;
-          context.setLineDash([...ISO_GRID_DASH]);
-          context.beginPath();
-          for (const line of getIsoGridLines(input.gridSize, input.cellSize)) {
-            context.moveTo(line.from.x, line.from.y);
-            context.lineTo(line.to.x, line.to.y);
-          }
-          context.stroke();
-          context.restore();
-        }
-
-        if (model.shadowPolygons.length > 0 && input.shadow.opacity > 0) {
-          context.save();
-          context.globalAlpha = input.shadow.opacity;
-          context.fillStyle = ISO_SHADOW_COLOR;
-          if (input.shadow.blur > 0) {
-            // Canvas filters are measured in output pixels, not transformed units.
-            context.filter = `blur(${input.shadow.blur * pixelRatio}px)`;
-          }
-          context.beginPath();
-          for (const polygon of model.shadowPolygons) {
-            polygon.forEach((point, index) => {
-              if (index === 0) context.moveTo(point.x, point.y);
-              else context.lineTo(point.x, point.y);
-            });
-            context.closePath();
-          }
-          context.fill();
-          context.restore();
-        }
+        if (input.includeGrid) drawIsoGuide(context, model);
 
         model.items.forEach((item, index) => {
           const image = images[index];

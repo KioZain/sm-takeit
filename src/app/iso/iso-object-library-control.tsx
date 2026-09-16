@@ -7,7 +7,15 @@ import {
 } from "@/toolcraft/runtime/react";
 import { Button, Input, Label, ToggleGroup, ToggleGroupItem } from "@/toolcraft/ui";
 
-import { ISO_FOOTPRINTS, type IsoFootprint, type IsoObjectRecord, type IsoPoint } from "./iso-geometry";
+import {
+  getFootprintDiamond,
+  getPlacementCells,
+  ISO_FOOTPRINTS,
+  type IsoFootprint,
+  type IsoObjectRecord,
+  type IsoPoint,
+} from "./iso-geometry";
+import { toSvgPath } from "./iso-scene";
 import {
   getIsoActiveObjectId,
   getIsoLibraryAssets,
@@ -25,6 +33,28 @@ const FOOTPRINT_LABELS: Record<IsoFootprint, string> = {
   "2x1": "2×1",
   "2x2": "2×2",
 };
+
+/** Small isometric outline of a footprint's cells, shown beside its label. */
+function FootprintGlyph({ footprint }: Readonly<{ footprint: IsoFootprint }>): React.JSX.Element {
+  const cellSize = 10;
+  const cells = getPlacementCells({ col: 0, footprint, row: 0 }).map((cell) =>
+    getFootprintDiamond(cell.col, cell.row, "1x1", cellSize),
+  );
+  return (
+    <svg
+      aria-hidden="true"
+      data-icon="inline-start"
+      fill="none"
+      height={16}
+      stroke="currentColor"
+      strokeLinejoin="round"
+      viewBox="-10.5 -0.5 21 11"
+      width={16}
+    >
+      <path d={toSvgPath(cells)} strokeWidth={1} vectorEffect="non-scaling-stroke" />
+    </svg>
+  );
+}
 
 function clamp01(value: number): number {
   return Math.min(1, Math.max(0, value));
@@ -268,6 +298,7 @@ export function IsoObjectLibraryControl({
             >
               {ISO_FOOTPRINTS.map((footprint) => (
                 <ToggleGroupItem key={footprint} value={footprint}>
+                  <FootprintGlyph footprint={footprint} />
                   {FOOTPRINT_LABELS[footprint]}
                 </ToggleGroupItem>
               ))}

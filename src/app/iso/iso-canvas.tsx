@@ -13,19 +13,19 @@ import { Button } from "@/toolcraft/ui";
 
 import {
   clampIsoCell,
+  getIsoCellAt,
   getIsoCellCommand,
-  getIsoCellRectPolygon,
-  getIsoEraseTarget,
+  getIsoHeightStepCommand,
   isSameIsoCell,
+  moveIsoHeightDrag,
   moveIsoSelectDrag,
+  startIsoHeightDrag,
   toIsoFramePoint,
   type IsoFieldContext,
+  type IsoHeightGesture,
   type IsoSelectDrag,
 } from "./iso-field";
 import {
-  checkPlacement,
-  getCellAtPoint,
-  getFootprintDiamond,
   normalizeCellRect,
   type IsoCell,
   type IsoCropMode,
@@ -33,6 +33,7 @@ import {
   type IsoSceneModel,
 } from "./iso-geometry";
 import { createIsoImageStore } from "./iso-image-store";
+import { getIsoOverlayPaths } from "./iso-overlay";
 import {
   ISO_OBJECT_IMAGES_KEY,
   isoEditorOverlayPass,
@@ -40,7 +41,8 @@ import {
   isoPreviewSvgPass,
   isoSceneLayoutPass,
 } from "./iso-pipeline";
-import { getIsoViewBox, IsoSceneLayers, toSvgPath } from "./iso-scene";
+import { getIsoViewBox, IsoSceneLayers } from "./iso-scene";
+import { getIsoColumnSpace } from "./iso-scene-model";
 import {
   buildIsoSceneModelFromState,
   createIsoLibraryCommand,
@@ -48,7 +50,9 @@ import {
   createIsoSelectionCommand,
   getIsoActiveObjectId,
   getIsoActivePlacements,
+  getIsoOffGridPlacements,
   getIsoLibraryAssets,
+  getIsoReliefLayers,
   getIsoLibraryObjects,
   normalizeIsoObjectRecord,
   readIsoGridVisible,
@@ -245,15 +249,21 @@ export function IsoCanvas(): React.JSX.Element | null {
     {
       "field.placements": values[ISO_TARGETS.placements],
       "grid.cellSize": values[ISO_TARGETS.cellSize],
-      "grid.preset": values[ISO_TARGETS.gridPreset],
+      "grid.hideHiddenLines": values[ISO_TARGETS.hideHiddenLines],
+      "grid.levelHeight": values[ISO_TARGETS.levelHeight],
+      "grid.size": values[ISO_TARGETS.gridSize],
       "library.files": libraryKey,
       "library.objects": values[ISO_TARGETS.libraryObjects],
       "output.crop": values[ISO_TARGETS.crop],
       "output.includeGrid": values[ISO_TARGETS.includeGrid],
       "output.padding": values[ISO_TARGETS.padding],
-      "shadow.blur": values[ISO_TARGETS.shadowBlur],
-      "shadow.offset": values[ISO_TARGETS.shadowOffset],
-      "shadow.opacity": values[ISO_TARGETS.shadowOpacity],
+      "output.showPieces": values[ISO_TARGETS.showPieces],
+      "relief.corner": values[ISO_TARGETS.reliefCorner],
+      "relief.edge": values[ISO_TARGETS.reliefEdge],
+      "relief.edits": values[ISO_TARGETS.reliefEdits],
+      "relief.max": values[ISO_TARGETS.reliefMax],
+      "relief.pattern": values[ISO_TARGETS.reliefPattern],
+      "relief.step": values[ISO_TARGETS.reliefStep],
     },
     () => buildIsoSceneModelFromState(sourceRef.current),
   );
@@ -275,8 +285,10 @@ export function IsoCanvas(): React.JSX.Element | null {
   const [cursor, setCursor] = React.useState<IsoCell | null>(null);
   const [erasePoint, setErasePoint] = React.useState<IsoPoint | null>(null);
   const [drag, setDrag] = React.useState<IsoSelectDrag | null>(null);
+  const [heightGesture, setHeightGesture] = React.useState<IsoHeightGesture | null>(null);
+  const [snapGuides, setSnapGuides] = React.useState<readonly IsoCell[]>([]);
   const shownSelection = drag ? normalizeCellRect(drag.from, drag.to) : selection;
-  const overlayKey = `${tool}|${JSON.stringify(shownSelection)}|${cursor?.col},${cursor?.row}|${erasePoint?.x},${erasePoint?.y}`;
+  const overlayKey = `${tool}|${JSON.stringify(shownSelection)}|${cursor?.col},${cursor?.row}|${erasePoint?.x},${erasePoint?.y}|${JSON.stringify(snapGuides)}|${heightGesture ? "drag" : ""}`;
 
   React.useLayoutEffect(() => {
     if (!pipeline || !model) return;
@@ -290,13 +302,18 @@ export function IsoCanvas(): React.JSX.Element | null {
 
   if (frame.kind !== "ready" || !model) return null;
 
+  const space = getIsoColumnSpace(input);
+  const relief = getIsoReliefLayers(source);
   const field: IsoFieldContext = {
     active,
     cellSize: input.cellSize,
     gridSize: input.gridSize,
     model,
+    offGrid: getIsoOffGridPlacements(source),
     placements,
+    relief,
     selection,
+    space,
     tool,
   };
 
@@ -311,11 +328,16 @@ export function IsoCanvas(): React.JSX.Element | null {
     );
   };
 
+  const endHeightGesture = () => {
+    setHeightGesture(null);
+    setSnapGuides([]);
+  };
+
   const handlePointerDown = (event: React.PointerEvent<HTMLButtonElement>) => {
     if (event.button !== 0) return;
     event.preventDefault();
     const point = pointFromEvent(event);
-    const cell = getCellAtPoint(point, input.gridSize, input.cellSize);
+    const cell = getIsoCellAt(field, point);
     setCursor(cell);
     if (tool === "select") {
       if (!cell) {
@@ -326,15 +348,37 @@ export function IsoCanvas(): React.JSX.Element | null {
       setDrag({ from: cell, pointerId: event.pointerId, to: cell });
       return;
     }
+    if (tool === "height") {
+      if (!cell) return;
+      const boxHeight = event.currentTarget.getBoundingClientRect().height;
+      event.currentTarget.setPointerCapture(event.pointerId);
+      setHeightGesture({
+        drag: startIsoHeightDrag(field, cell),
+        group: `iso-height-${event.pointerId}-${Math.round(event.timeStamp)}`,
+        pointerId: event.pointerId,
+        startY: event.clientY,
+        unitsPerPixel: model.frame.height / Math.max(1, boxHeight),
+      });
+      return;
+    }
     const command = getIsoCellCommand(field, cell, point);
     if (command) dispatch(command);
   };
 
   const handlePointerMove = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const point = pointFromEvent(event);
-    const cell = getCellAtPoint(point, input.gridSize, input.cellSize);
     const pointerId = event.pointerId;
-    const clamped = clampIsoCell(point, input.gridSize, input.cellSize);
+    if (heightGesture && heightGesture.pointerId === pointerId) {
+      const result = moveIsoHeightDrag(field, heightGesture, event.clientY, {
+        altKey: event.altKey,
+        shiftKey: event.shiftKey,
+      });
+      dispatch(result.command);
+      setSnapGuides(result.guides);
+      return;
+    }
+    const point = pointFromEvent(event);
+    const cell = getIsoCellAt(field, point);
+    const clamped = clampIsoCell(field, point);
     setCursor((previous) => (isSameIsoCell(previous, cell) ? previous : cell));
     setErasePoint(tool === "erase" ? point : null);
     setDrag((current) => moveIsoSelectDrag(current, pointerId, clamped));
@@ -342,6 +386,10 @@ export function IsoCanvas(): React.JSX.Element | null {
 
   const handlePointerUp = (event: React.PointerEvent<HTMLButtonElement>) => {
     const pointerId = event.pointerId;
+    if (heightGesture && heightGesture.pointerId === pointerId) {
+      endHeightGesture();
+      return;
+    }
     if (!drag || drag.pointerId !== pointerId) return;
     dispatch(createIsoSelectionCommand(normalizeCellRect(drag.from, drag.to)));
     setDrag(null);
@@ -359,6 +407,13 @@ export function IsoCanvas(): React.JSX.Element | null {
       });
       return;
     }
+    if (tool === "height" && (event.key === "PageUp" || event.key === "PageDown")) {
+      event.preventDefault();
+      if (!cursor) return;
+      const command = getIsoHeightStepCommand(field, cursor, event.key === "PageUp" ? 1 : -1);
+      if (command) dispatch(command);
+      return;
+    }
     if (event.key !== "Enter" && event.key !== " ") return;
     event.preventDefault();
     if (!cursor) return;
@@ -372,51 +427,15 @@ export function IsoCanvas(): React.JSX.Element | null {
     if (command) dispatch(command);
   };
 
-  let hoverOverlay: React.ReactNode = null;
-  if (cursor && tool === "place" && active) {
-    const valid = checkPlacement(
-      placements,
-      cursor.col,
-      cursor.row,
-      active.record.footprint,
-      input.gridSize,
-    ).ok;
-    hoverOverlay = (
-      <path
-        className={valid ? styles.hoverValid : styles.hoverInvalid}
-        d={toSvgPath([
-          getFootprintDiamond(cursor.col, cursor.row, active.record.footprint, input.cellSize),
-        ])}
-        data-iso-hover={valid ? "valid" : "invalid"}
-        strokeWidth={1.5}
-        vectorEffect="non-scaling-stroke"
-      />
-    );
-  } else if (tool === "erase") {
-    const target = getIsoEraseTarget(field, cursor, erasePoint);
-    const item =
-      target.kind === "placement"
-        ? model.items.find((candidate) => candidate.placement.id === target.id)
-        : undefined;
-    hoverOverlay = item ? (
-      <path
-        className={styles.hoverInvalid}
-        d={toSvgPath([item.diamond])}
-        data-iso-hover="erase"
-        strokeWidth={1.5}
-        vectorEffect="non-scaling-stroke"
-      />
-    ) : null;
-  } else if (cursor && tool === "select" && !drag) {
-    hoverOverlay = (
-      <path
-        className={styles.hoverCell}
-        d={toSvgPath([getFootprintDiamond(cursor.col, cursor.row, "1x1", input.cellSize)])}
-        strokeWidth={1}
-        vectorEffect="non-scaling-stroke"
-      />
-    );
-  }
+  const overlayPaths = getIsoOverlayPaths({
+    cursor,
+    dragging: drag !== null,
+    erasePoint,
+    field,
+    heightGesture,
+    selection: shownSelection,
+    snapGuides,
+  });
 
   const viewBox = getIsoViewBox(model);
 
@@ -430,17 +449,7 @@ export function IsoCanvas(): React.JSX.Element | null {
         width={model.frame.width}
         xmlns="http://www.w3.org/2000/svg"
       >
-        <IsoSceneLayers
-          appearance={{
-            cellSize: input.cellSize,
-            gridSize: input.gridSize,
-            shadowBlur: input.shadow.blur,
-            shadowOpacity: input.shadow.opacity,
-            showGrid: gridVisible,
-          }}
-          imageUrls={urls}
-          model={model}
-        />
+        <IsoSceneLayers appearance={{ showGrid: gridVisible }} imageUrls={urls} model={model} />
       </svg>
       <Button
         aria-label={`Sushi set field, ${tool} tool`}
@@ -450,8 +459,14 @@ export function IsoCanvas(): React.JSX.Element | null {
         data-testid={ISO_FIELD_HANDLE_TEST_ID}
         data-toolcraft-canvas-handle=""
         onKeyDown={handleKeyDown}
-        onLostPointerCapture={() => setDrag(null)}
-        onPointerCancel={() => setDrag(null)}
+        onLostPointerCapture={() => {
+          setDrag(null);
+          endHeightGesture();
+        }}
+        onPointerCancel={() => {
+          setDrag(null);
+          endHeightGesture();
+        }}
         onPointerDown={handlePointerDown}
         onPointerLeave={() => {
           setCursor(null);
@@ -470,16 +485,18 @@ export function IsoCanvas(): React.JSX.Element | null {
           viewBox={viewBox}
           xmlns="http://www.w3.org/2000/svg"
         >
-          {shownSelection ? (
+          {overlayPaths.map((path) => (
             <path
-              className={styles.selection}
-              d={toSvgPath([getIsoCellRectPolygon(shownSelection, input.cellSize)])}
-              data-iso-selection={`${shownSelection.col0},${shownSelection.row0},${shownSelection.col1},${shownSelection.row1}`}
-              strokeWidth={1.5}
+              className={styles[path.tone]}
+              d={path.d}
+              data-iso-hover={path.hover}
+              data-iso-selection={path.selection}
+              data-iso-snap-guides={path.snapGuides}
+              key={path.key}
+              strokeWidth={path.strokeWidth}
               vectorEffect="non-scaling-stroke"
             />
-          ) : null}
-          {hoverOverlay}
+          ))}
         </svg>
       </Button>
     </div>

@@ -14,9 +14,11 @@
       },
       "canvas.size.width": 480,
       "canvas.size.height": 264,
-      "grid.preset": "6",
+      "grid.size": 6,
       "grid.cellSize": 72,
+      "grid.levelHeight": 50,
       "grid.visible": true,
+      "grid.hideHiddenLines": false,
       "library.objects": {
         "activeId": null,
         "items": {}
@@ -25,14 +27,14 @@
       "field.placements": {
         "items": []
       },
-      "shadow.opacity": 30,
-      "shadow.blur": 8,
-      "shadow.offset": {
-        "x": 0,
-        "y": 0.1
-      },
+      "relief.pattern": "flat",
+      "relief.corner": "top",
+      "relief.edge": "top-left",
+      "relief.max": 4,
+      "relief.step": 2,
       "output.crop": "field",
       "output.padding": 24,
+      "output.showPieces": true,
       "output.includeGrid": false,
       "export.image.format": "png",
       "export.image.resolution": "4k"

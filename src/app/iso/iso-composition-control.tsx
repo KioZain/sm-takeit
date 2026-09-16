@@ -1,3 +1,4 @@
+import { ArrowsOutSimpleIcon } from "@phosphor-icons/react";
 import * as React from "react";
 
 import type { ToolcraftMediaAsset } from "@/toolcraft/runtime";
@@ -51,13 +52,7 @@ function CardPreview({
         xmlns="http://www.w3.org/2000/svg"
       >
         <IsoSceneLayers
-          appearance={{
-            cellSize: input.cellSize,
-            gridSize: input.gridSize,
-            shadowBlur: input.shadow.blur,
-            shadowOpacity: input.shadow.opacity,
-            showGrid: readIsoGridVisible(state.values) && input.includeGrid,
-          }}
+          appearance={{ showGrid: readIsoGridVisible(state.values) && input.includeGrid }}
           imageUrls={urls}
           model={model}
         />
@@ -106,6 +101,7 @@ export function IsoCompositionControl({
         <CardPreview state={state} urls={urls} width={smallWidth} />
         <Popover>
           <PopoverTrigger render={<Button size="sm" variant="outline" />}>
+            <ArrowsOutSimpleIcon data-icon="inline-start" />
             {largeWidth} px
           </PopoverTrigger>
           <PopoverContent

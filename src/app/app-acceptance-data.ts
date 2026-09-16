@@ -3,9 +3,14 @@ import type {
   ToolcraftProductReadiness,
   ToolcraftTransferMode,
 } from "./acceptance/types";
+import { appReliefAcceptance } from "./app-acceptance-relief";
 import { appInteractionOwnership, canvasPlacementCommand } from "./app-interaction-ownership";
 import { appSchema } from "./app-schema";
-import { ISO_ACTIONS, ISO_FIELD_HANDLE_TEST_ID, ISO_TARGETS } from "./iso/iso-state";
+import {
+  ISO_ACTIONS,
+  ISO_FIELD_HANDLE_TEST_ID,
+  ISO_TARGETS,
+} from "./iso/iso-state";
 export { appControlSectionInventory } from "./app-control-inventory";
 
 const persistenceSlices =
@@ -37,7 +42,6 @@ const specs = {
   grid: "e2e/product-iso-grid.spec.ts",
   library: "e2e/product-iso-library.spec.ts",
   output: "e2e/product-iso-output.spec.ts",
-  shadow: "e2e/product-iso-shadow.spec.ts",
 } as const;
 
 export const appTransferMode: ToolcraftTransferMode = {
@@ -58,7 +62,7 @@ export const appProductReadiness: ToolcraftProductReadiness = {
   productSummary:
     "Builds isometric sushi set compositions from transparent PNG rolls placed on a dashed vector isometric grid.",
   requestedBehavior:
-    "Upload roll PNGs, configure footprint, anchor, and scale per object, place, fill, select, and erase pieces on a 6×6 or 12×12 rhombus grid, tune shadows, preview the set at app card widths, and export a cropped transparent PNG.",
+    "Upload roll PNGs, configure footprint, anchor, and scale per object, place, fill, select, and erase pieces on a 2×2 to 8×8 rhombus grid, raise columns by hand with magnetic snapping or from relief patterns, preview the set at app card widths, and export a cropped transparent PNG.",
   viewInteraction: {
     mode: "non-spatial",
     reason:
@@ -130,21 +134,21 @@ export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
   },
   {
     automated: true,
-    automatedTestName: "grid presets rebuild the rhombus field",
+    automatedTestName: "grid size rebuilds the rhombus field from 2 to 8 cells",
     browser: {
       budget: "standard",
       file: specs.grid,
-      testName: "browser acceptance: grid preset rebuilds the field",
+      testName: "browser acceptance: grid size slider rebuilds the field",
     },
-    componentType: "segmented",
+    componentType: "slider",
     evidence: "rendered-pixels",
-    expectedObservable: "Switching between 6×6 and 12×12 redraws the dashed field with the new cell count.",
+    expectedObservable:
+      "Dragging Size redraws the dashed field with 2 to 8 cells per side while the pointer is held.",
     fixture: "empty field",
-    id: "grid.preset",
+    id: "grid.size",
     kind: "control",
-    optionCoverage: ["6", "12"],
-    target: ISO_TARGETS.gridPreset,
-    userAction: "Select 12×12 then 6×6 and compare the rendered field.",
+    target: ISO_TARGETS.gridSize,
+    userAction: "Drag the discrete Size slider and compare the rendered field.",
   },
   {
     automated: true,
@@ -248,17 +252,18 @@ export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
     browser: {
       budget: "standard",
       file: specs.field,
-      testName: "browser acceptance: tool mode switches between place, select, and erase",
+      testName: "browser acceptance: tool mode switches between place, select, erase, and height",
     },
     componentType: "segmented",
     evidence: "rendered-pixels",
-    expectedObservable: "The same cell click places a piece with Place, selects with Select, and removes it with Erase.",
+    expectedObservable:
+      "The same cell click places a piece with Place, selects with Select, removes it with Erase, and a vertical drag raises the column with Height.",
     fixture: "one uploaded object",
     id: "field.tool",
     kind: "control",
-    optionCoverage: ["place", "select", "erase"],
+    optionCoverage: ["place", "select", "erase", "height"],
     target: ISO_TARGETS.tool,
-    userAction: "Click a cell with each tool and compare the canvas.",
+    userAction: "Click or drag a cell with each tool and compare the canvas.",
   },
   {
     actionCoverage: [ISO_ACTIONS.fillSelection, ISO_ACTIONS.fillField, ISO_ACTIONS.clearField],
@@ -375,59 +380,7 @@ export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
     target: canvasPlacementCommand,
     userAction: "Click a piece with Erase, then click inside the selected section.",
   },
-  {
-    automated: true,
-    automatedTestName: "shadow opacity scales the shadow layer",
-    browser: {
-      budget: "standard",
-      file: specs.shadow,
-      testName: "browser acceptance: shadow opacity darkens shadows live",
-    },
-    componentType: "slider",
-    evidence: "rendered-pixels",
-    expectedObservable: "Dragging Opacity darkens or lightens the shadows under placed pieces during the drag.",
-    fixture: "placed pieces with shadows",
-    id: "shadow.opacity",
-    kind: "control",
-    target: ISO_TARGETS.shadowOpacity,
-    userAction: "Drag the Opacity thumb.",
-  },
-  {
-    automated: true,
-    automatedTestName: "shadow blur expands shadow bounds",
-    browser: {
-      budget: "standard",
-      file: specs.shadow,
-      testName: "browser acceptance: shadow blur softens shadows live",
-    },
-    componentType: "slider",
-    evidence: "rendered-pixels",
-    expectedObservable: "Dragging Blur softens the shadow edges during the drag.",
-    fixture: "placed pieces with shadows",
-    id: "shadow.blur",
-    kind: "control",
-    target: ISO_TARGETS.shadowBlur,
-    userAction: "Drag the Blur thumb.",
-  },
-  {
-    automated: true,
-    automatedTestName: "shadow offset moves every shadow polygon",
-    browser: {
-      budget: "standard",
-      file: specs.shadow,
-      testName: "browser acceptance: shadow offset moves shadows with the pad",
-    },
-    componentType: "vector",
-    controlPartCoverage: ["vector.x", "vector.y"],
-    evidence: "rendered-pixels",
-    expectedObservable: "Dragging the Offset pad moves every shadow in the gesture direction.",
-    fixture: "one small piece with a sharp opaque shadow",
-    id: "shadow.offset",
-    interactionId: "shadow-offset",
-    kind: "control",
-    target: ISO_TARGETS.shadowOffset,
-    userAction: "Drag the Offset pad right, left, down, and up.",
-  },
+  ...appReliefAcceptance,
   {
     automated: true,
     automatedTestName: "crop modes frame the field or the content",
@@ -462,6 +415,24 @@ export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
     kind: "control",
     target: ISO_TARGETS.padding,
     userAction: "Drag Padding and export PNG.",
+  },
+  {
+    automated: true,
+    automatedTestName: "show rolls hides every piece from the preview and export",
+    browser: {
+      budget: "extended-io",
+      file: specs.output,
+      testName: "browser acceptance: show rolls off exports only the grid",
+    },
+    componentType: "switch",
+    evidence: "exported-bytes",
+    expectedObservable:
+      "Turning Show rolls off removes every roll from the canvas and card previews, and the PNG with Grid in export contains only the dashed grid.",
+    fixture: "placed set with Grid in export on",
+    id: "output.showPieces",
+    kind: "control",
+    target: ISO_TARGETS.showPieces,
+    userAction: "Turn Show rolls off, export PNG, and inspect the decoded download.",
   },
   {
     automated: true,
@@ -528,7 +499,7 @@ export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
     componentType: "panelActions",
     evidence: "exported-bytes",
     exportArtifactCoverage: "all-required-image-export-behavior",
-    expectedObservable: "The downloaded PNG contains the placed rolls and their shadows at the selected size.",
+    expectedObservable: "The downloaded PNG contains the placed rolls, raised with their columns, at the selected size.",
     fixture: "placed set",
     id: "export.image",
     kind: "control",
