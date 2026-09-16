@@ -1,0 +1,46 @@
+name: Deploy to GitHub Pages
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: lts/*
+          cache: npm
+
+      - name: Install dependencies
+        run: npm ci
+
+      # `npm run build` also typechecks the Toolcraft framework, which has a known
+      # upstream type error; the product bundle itself is built by Vite directly.
+      - name: Build
+        run: npx vite build --base="/${{ github.event.repository.name }}/"
+
+      # index.html is framework-owned, so the favicon link is added to the built page only.
+      - name: Link favicon and disable Jekyll
+        run: |
+          sed -i "s#</title>#</title>\n    <link rel=\"icon\" href=\"/${{ github.event.repository.name }}/favicon.ico\" />#" dist/index.html
+          touch dist/.nojekyll
+
+      - name: Publish to gh-pages
+        uses: peaceiris/actions-gh-pages@v4
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_branch: gh-pages
+          publish_dir: ./dist
+          commit_message: "Deploy ${{ github.sha }}"
