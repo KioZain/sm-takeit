@@ -1,9 +1,5 @@
 import { describe, expect, it } from "vitest";
 
-import type {
-  ToolcraftProductExportFrameContext,
-  ToolcraftRendererPipelineClient,
-} from "@/toolcraft/runtime";
 
 import { appSchema } from "../app-schema";
 import { isoRasterFrameRenderer } from "./iso-export";
@@ -27,6 +23,7 @@ import {
   asset,
   at,
   createState,
+  exportFrame,
   fieldContext,
   applyCommand,
   heightMatrix,
@@ -36,58 +33,6 @@ import {
   size,
   withPlacements,
 } from "./iso-test-fixtures";
-
-function createRecordingContext() {
-  const calls: string[] = [];
-  const images: number[][] = [];
-  const context = {
-    beginPath: () => calls.push("beginPath"),
-    closePath: () => undefined,
-    drawImage: (_image: unknown, x: number, y: number, width: number, height: number) =>
-      images.push([x, y, width, height]),
-    fill: () => calls.push("fill"),
-    fillRect: () => calls.push("fillRect"),
-    lineTo: () => undefined,
-    moveTo: () => undefined,
-    restore: () => calls.push("restore"),
-    save: () => calls.push("save"),
-    set filter(value: string) {
-      calls.push(`filter:${value}`);
-    },
-    set globalAlpha(value: number) {
-      calls.push(`alpha:${value}`);
-    },
-    setLineDash: () => calls.push("dash"),
-    stroke: () => calls.push("stroke"),
-    translate: (x: number, y: number) => calls.push(`translate:${x},${y}`),
-  };
-  return { calls, context, images };
-}
-
-async function exportFrame(state: ReturnType<typeof createState>, pixelRatio = 2) {
-  const recording = createRecordingContext();
-  const store = {
-    dispose: () => undefined,
-    load: async () => ({ bitmap: {}, ...size }),
-    register: () => undefined,
-    unregister: () => undefined,
-  };
-  const pipeline = {
-    runPass: async (
-      _pass: unknown,
-      _input: unknown,
-      work: (context: { getOrCreateResource: () => Promise<typeof store> }) => unknown,
-    ) => work({ getOrCreateResource: async () => store }),
-  } as unknown as ToolcraftRendererPipelineClient;
-  await isoRasterFrameRenderer.renderFrame({
-    context: recording.context,
-    pixelRatio,
-    rendererPipeline: pipeline,
-    signal: new AbortController().signal,
-    state,
-  } as unknown as ToolcraftProductExportFrameContext);
-  return recording;
-}
 
 function sectionControls(id: string) {
   return appSchema.panels.controls?.sections.find((section) => section.id === id)?.controls ?? {};

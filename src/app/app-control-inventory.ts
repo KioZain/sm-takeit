@@ -3,6 +3,15 @@ import { ISO_TARGETS } from "./iso/iso-state";
 
 export const appControlSectionInventory: readonly ToolcraftControlSectionInventoryEntry[] = [
   {
+    entity: "Generator presets",
+    entityId: "generator-presets",
+    finiteSelectors: [],
+    groupingReason: "Numbered buttons apply complete grid and relief setups in one step.",
+    id: "presets",
+    targets: [ISO_TARGETS.presets],
+    title: "Presets",
+  },
+  {
     entity: "Output background",
     entityId: "output-background",
     finiteSelectors: [
@@ -112,6 +121,27 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
         role: "parameter",
         target: ISO_TARGETS.reliefStep,
       },
+      {
+        affectedTargets: [],
+        reason: "Wave decides whether the pattern is static or a looping wave with its own length and direction.",
+        role: "branch",
+        target: ISO_TARGETS.reliefWave,
+      },
+      {
+        reason: "Wave length changes only the spacing between crests.",
+        role: "parameter",
+        target: ISO_TARGETS.reliefWaveLength,
+      },
+      {
+        reason: "Direction changes only which way the crests travel.",
+        role: "parameter",
+        target: ISO_TARGETS.reliefWaveDirection,
+      },
+      {
+        reason: "Easing changes only how columns accelerate between trough and crest.",
+        role: "parameter",
+        target: ISO_TARGETS.reliefWaveEasing,
+      },
     ],
     groupingReason: "Pattern, direction, height, and falloff together define the live column relief under the hand edits.",
     id: "relief",
@@ -121,6 +151,10 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
       ISO_TARGETS.reliefEdge,
       ISO_TARGETS.reliefMax,
       ISO_TARGETS.reliefStep,
+      ISO_TARGETS.reliefWave,
+      ISO_TARGETS.reliefWaveLength,
+      ISO_TARGETS.reliefWaveDirection,
+      ISO_TARGETS.reliefWaveEasing,
       ISO_TARGETS.reliefCommands,
     ],
     title: "Relief",
@@ -170,5 +204,25 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
     id: "runtime.image-export",
     targets: ["export.image.format", "export.image.resolution"],
     title: "Image Export",
+  },
+  {
+    entity: "Video delivery",
+    entityId: "video-delivery",
+    finiteSelectors: [
+      {
+        reason: "Video format changes its own exported container.",
+        role: "parameter",
+        target: "export.video.format",
+      },
+      {
+        reason: "Video resolution changes its own exported dimensions.",
+        role: "parameter",
+        target: "export.video.resolution",
+      },
+    ],
+    groupingReason: "Format and resolution together configure the exported wave video.",
+    id: "runtime.video-export",
+    targets: ["export.video.format", "export.video.resolution"],
+    title: "Video Export",
   },
 ];

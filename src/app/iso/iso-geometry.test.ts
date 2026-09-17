@@ -38,6 +38,7 @@ function sceneInput(overrides: Partial<IsoSceneInput> = {}): IsoSceneInput {
     objects: { roll: record },
     padding: 10,
     placements: [],
+    heightRange: null,
     heights: new Map(),
     hideHiddenLines: false,
     levelHeight: 50,

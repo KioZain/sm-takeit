@@ -1,6 +1,7 @@
 import type { ToolcraftPanelActionContext } from "@/toolcraft/runtime/react";
 
 import { clampCellRect, fillCellRect } from "./iso-geometry";
+import { getIsoPresetCommand } from "./iso-presets";
 import { clearReliefEdits } from "./iso-relief";
 import {
   createIsoPlacementsCommand,
@@ -26,6 +27,12 @@ export function handleIsoPanelAction({
   reportFeedback,
   state,
 }: ToolcraftPanelActionContext): void {
+  const presetCommand = getIsoPresetCommand(action.value);
+  if (presetCommand) {
+    dispatch(presetCommand);
+    return;
+  }
+
   const placements = getIsoActivePlacements(state);
   const gridSize = getIsoGridSize(state.values);
   const relief = getIsoReliefLayers(state);
@@ -75,7 +82,7 @@ export function handleIsoPanelAction({
     return;
   }
 
-  const next = fillCellRect(placements, rect, active.id, active.record.footprint, gridSize, relief.heights);
+  const next = fillCellRect(placements, rect, active.id, active.record.footprint, gridSize, relief.animated ? undefined : relief.heights);
   dispatch(
     createIsoPlacementsCommand(
       [...next, ...getIsoOffGridPlacements(state)],

@@ -44,7 +44,7 @@ export type IsoFieldContext = Readonly<{
   offGrid: readonly IsoPlacement[];
   placements: readonly IsoPlacement[];
   /** Live pattern levels and the hand edits over them. */
-  relief: Readonly<{ edits: IsoHeightMap; pattern: IsoHeightMap }>;
+  relief: Readonly<{ animated: boolean; edits: IsoHeightMap; pattern: IsoHeightMap }>;
   selection: IsoCellRect | null;
   /** Grid and final column heights used for hit tests and raised outlines. */
   space: IsoColumnSpace;
@@ -70,6 +70,11 @@ export function toIsoFramePoint(
     x: model.frame.x + (offsetX * model.frame.width) / Math.max(1, boxWidth),
     y: model.frame.y + (offsetY * model.frame.height) / Math.max(1, boxHeight),
   };
+}
+
+/** Heights that decide whether a footprint is level; a running wave levels pieces itself. */
+export function getIsoPlacementHeights(field: IsoFieldContext): IsoHeightMap | undefined {
+  return field.relief.animated ? undefined : field.space.heights;
 }
 
 /** The column under the point, or null off the field. */
@@ -138,7 +143,7 @@ export function getIsoCellCommand(
       cell.row,
       field.active.record.footprint,
       field.gridSize,
-      field.space.heights,
+      getIsoPlacementHeights(field),
     );
     return next ? createIsoPlacementsCommand([...next, ...field.offGrid], "Place object") : null;
   }

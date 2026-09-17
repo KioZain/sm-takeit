@@ -1,9 +1,14 @@
 import { vi } from "vitest";
 
-import type { ToolcraftCommand } from "@/toolcraft/runtime";
+import type {
+  ToolcraftCommand,
+  ToolcraftProductExportFrameContext,
+  ToolcraftRendererPipelineClient,
+} from "@/toolcraft/runtime";
 import type { ToolcraftPanelActionContext } from "@/toolcraft/runtime/react";
 
 import { handleIsoPanelAction } from "./iso-actions";
+import { isoRasterFrameRenderer } from "./iso-export";
 import type { IsoFieldContext } from "./iso-field";
 import type { IsoObjectRecord, IsoPlacement } from "./iso-geometry";
 import { getIsoColumnSpace } from "./iso-scene-model";
@@ -144,3 +149,59 @@ export function runAction(value: string, state: ReturnType<typeof createState>) 
   return { dispatched: dispatch.mock.calls.map(([command]) => command), reportFeedback };
 }
 
+export function createRecordingContext() {
+  const calls: string[] = [];
+  const images: number[][] = [];
+  const context = {
+    beginPath: () => calls.push("beginPath"),
+    closePath: () => undefined,
+    drawImage: (_image: unknown, x: number, y: number, width: number, height: number) =>
+      images.push([x, y, width, height]),
+    fill: () => calls.push("fill"),
+    fillRect: () => calls.push("fillRect"),
+    lineTo: () => undefined,
+    moveTo: () => undefined,
+    restore: () => calls.push("restore"),
+    save: () => calls.push("save"),
+    set filter(value: string) {
+      calls.push(`filter:${value}`);
+    },
+    set globalAlpha(value: number) {
+      calls.push(`alpha:${value}`);
+    },
+    setLineDash: () => calls.push("dash"),
+    stroke: () => calls.push("stroke"),
+    translate: (x: number, y: number) => calls.push(`translate:${x},${y}`),
+  };
+  return { calls, context, images };
+}
+
+export async function exportFrame(
+  state: IsoStateSource,
+  pixelRatio = 2,
+  timelineProgress = 0,
+) {
+  const recording = createRecordingContext();
+  const store = {
+    dispose: () => undefined,
+    load: async () => ({ bitmap: {}, ...size }),
+    register: () => undefined,
+    unregister: () => undefined,
+  };
+  const pipeline = {
+    runPass: async (
+      _pass: unknown,
+      _input: unknown,
+      work: (context: { getOrCreateResource: () => Promise<typeof store> }) => unknown,
+    ) => work({ getOrCreateResource: async () => store }),
+  } as unknown as ToolcraftRendererPipelineClient;
+  await isoRasterFrameRenderer.renderFrame({
+    context: recording.context,
+    pixelRatio,
+    rendererPipeline: pipeline,
+    signal: new AbortController().signal,
+    state,
+    timelineProgress,
+  } as unknown as ToolcraftProductExportFrameContext);
+  return recording;
+}

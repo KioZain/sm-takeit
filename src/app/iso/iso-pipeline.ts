@@ -36,6 +36,11 @@ export const ISO_SCENE_LAYOUT_KEYS = [
   "relief.max",
   "relief.pattern",
   "relief.step",
+  "relief.wave",
+  "relief.waveDirection",
+  "relief.waveEasing",
+  "relief.waveLength",
+  "timeline.time",
 ] as const;
 
 export const ISO_OBJECT_IMAGES_KEY = "iso-object-images";
@@ -77,6 +82,9 @@ export const isoRendererPipelineRegistration =
           "relief.edge",
           "relief.edits",
           "relief.pattern",
+          "relief.wave",
+          "relief.waveDirection",
+          "relief.waveEasing",
         ],
       },
       {
@@ -102,7 +110,20 @@ export const isoRendererPipelineRegistration =
           "output.padding",
           "relief.max",
           "relief.step",
+          "relief.waveLength",
         ],
+      },
+      {
+        interaction: "timeline-playback",
+        invalidates: ["scene-layout", "preview-svg", "editor-overlay"],
+        mustNotInvalidate: ["object-images"],
+        targets: ["timeline.time"],
+      },
+      {
+        interaction: "timeline-scrub",
+        invalidates: ["scene-layout", "preview-svg", "editor-overlay"],
+        mustNotInvalidate: ["object-images"],
+        targets: ["timeline.time"],
       },
       {
         interaction: "mask-drag",

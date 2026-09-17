@@ -7,6 +7,21 @@ export const canvasPlacementCommand = "controls.setValue";
 export const appInteractionOwnership: readonly ToolcraftInteractionOwnershipEntry[] = [
   {
     alternative: {
+      reason: "Scaffold chrome is not available in the screen corner, and canvas buttons would cover the set.",
+      surface: "canvas",
+    },
+    capability: "command",
+    evidence: {
+      detail: "The request asks for numbered generator presets; the user chose the top of the panel.",
+      source: "user-request",
+    },
+    id: "generator-presets",
+    reason: "The panel owns applying numbered presets to the grid and relief settings.",
+    surface: "panel",
+    target: ISO_TARGETS.presets,
+  },
+  {
+    alternative: {
       reason: "A panel cell picker would detach placement from the isometric field it edits.",
       surface: "panel",
     },

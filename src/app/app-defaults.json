@@ -5,7 +5,7 @@
     "values": {
       "export.includeBackground": false,
       "scene.background": "#FFFFFF",
-      "canvas.workspaceBackground": "dots",
+      "canvas.workspaceBackground": "blanc",
       "canvas.aspectRatio": {
         "height": 11,
         "mode": "custom",
@@ -32,24 +32,30 @@
       "relief.edge": "top-left",
       "relief.max": 4,
       "relief.step": 2,
+      "relief.wave": false,
+      "relief.waveLength": 6,
+      "relief.waveDirection": "outward",
+      "relief.waveEasing": "sine",
       "output.crop": "field",
       "output.padding": 24,
       "output.showPieces": true,
       "output.includeGrid": false,
       "export.image.format": "png",
-      "export.image.resolution": "4k"
+      "export.image.resolution": "4k",
+      "export.video.format": "mp4",
+      "export.video.resolution": "current"
     },
     "canvas": {
       "offset": {
-        "x": 0,
-        "y": -8.00048828125
+        "x": -97.68,
+        "y": 29.665004681250025
       },
       "size": {
         "height": 264,
         "unit": "px",
         "width": 480
       },
-      "zoom": 100,
+      "zoom": 156,
       "mode": "finite"
     },
     "panels": {
@@ -81,7 +87,7 @@
     },
     "timeline": {
       "currentTimeSeconds": 0,
-      "durationSeconds": 8,
+      "durationSeconds": 4,
       "expanded": false,
       "isLooping": true,
       "isPlaying": true,
@@ -93,5 +99,5 @@
     "mediaAssets": []
   },
   "resources": [],
-  "theme": "dark"
+  "theme": "light"
 }

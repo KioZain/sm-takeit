@@ -3,10 +3,13 @@ import {
   defineToolcraft,
   imageExportModule,
   mediaSourceModule,
+  timelineModule,
   type ToolcraftControlSchema,
+  videoExportModule,
 } from "@/toolcraft/runtime";
 
 import appDefaults from "./app-defaults.json" with { type: "json" };
+import { ISO_PRESET_ACTIONS } from "./iso/iso-presets";
 import { appIdentity } from "./app-identity";
 import {
   isoCompositionControlType,
@@ -20,6 +23,8 @@ import {
   ISO_GRID_SIZE_RANGE,
   ISO_LEVEL_HEIGHT_RANGE,
   ISO_RELIEF_ACTIONS,
+  ISO_WAVE_LENGTH_RANGE,
+  ISO_WAVE_LOOP_SECONDS,
   ISO_LIBRARY_MAX_OBJECTS,
   ISO_TARGETS,
 } from "./iso/iso-state";
@@ -46,9 +51,25 @@ const usesEdge = {
   all: [{ equals: "edge", target: ISO_TARGETS.reliefPattern }],
   mode: "conditional",
 } as const;
+const usesWave = {
+  all: [
+    { oneOf: RAISED_PATTERNS, target: ISO_TARGETS.reliefPattern },
+    { equals: true, target: ISO_TARGETS.reliefWave },
+  ],
+  mode: "conditional",
+} as const;
+const SLOPE_PATTERNS = ["corner-diagonal", "corner-rings", "edge", "pyramid"] as const;
 const usesFalloff = {
   all: [
-    { oneOf: ["corner-diagonal", "corner-rings", "edge", "pyramid"], target: ISO_TARGETS.reliefPattern },
+    { oneOf: SLOPE_PATTERNS, target: ISO_TARGETS.reliefPattern },
+    { equals: false, target: ISO_TARGETS.reliefWave },
+  ],
+  mode: "conditional",
+} as const;
+const usesWaveSlope = {
+  all: [
+    { oneOf: SLOPE_PATTERNS, target: ISO_TARGETS.reliefPattern },
+    { equals: true, target: ISO_TARGETS.reliefWave },
   ],
   mode: "conditional",
 } as const;
@@ -70,6 +91,22 @@ export const appSchema = defineToolcraft({
     panels: {
       controls: {
         sections: [
+          {
+            controls: {
+              presets: {
+                actions: ISO_PRESET_ACTIONS,
+                applicability: always,
+                label: false,
+                orderRole: "action",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.presets,
+                type: "actions",
+              } satisfies ToolcraftControlSchema,
+            },
+            description: "Numbered generator setups for the grid and the relief wave. Undo restores the previous settings.",
+            id: "presets",
+            title: "Presets",
+          },
           {
             controls: {
               includeBackground: {
@@ -339,6 +376,63 @@ export const appSchema = defineToolcraft({
                 unit: "cells",
                 variant: "discrete",
               } satisfies ToolcraftControlSchema,
+              wave: {
+                applicability: usesPeak,
+                defaultValue: ISO_DEFAULTS.reliefWave,
+                description:
+                  "Runs the pattern as a smooth looping wave on the timeline. One loop moves the wave by one full crest.",
+                label: "Wave",
+                orderRole: "mode",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.reliefWave,
+                type: "switch",
+              } satisfies ToolcraftControlSchema,
+              waveLength: {
+                applicability: usesWaveSlope,
+                defaultValue: ISO_DEFAULTS.reliefWaveLength,
+                description: "Distance between two crests.",
+                label: "Wave length",
+                max: ISO_WAVE_LENGTH_RANGE.max,
+                min: ISO_WAVE_LENGTH_RANGE.min,
+                orderRole: "detail",
+                performanceRole: "responsiveness",
+                sliderValueKind: "discrete",
+                step: 1,
+                target: ISO_TARGETS.reliefWaveLength,
+                type: "slider",
+                unit: "cells",
+                variant: "discrete",
+              } satisfies ToolcraftControlSchema,
+              waveDirection: {
+                applicability: usesWaveSlope,
+                defaultValue: ISO_DEFAULTS.reliefWaveDirection,
+                label: "Direction",
+                options: [
+                  { label: "From peak", value: "outward" },
+                  { label: "To peak", value: "inward" },
+                ],
+                orderRole: "detail",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.reliefWaveDirection,
+                type: "segmented",
+              } satisfies ToolcraftControlSchema,
+              waveEasing: {
+                applicability: usesWave,
+                defaultValue: ISO_DEFAULTS.reliefWaveEasing,
+                description: "How columns speed up and slow down as they rise to a crest and fall back.",
+                label: "Easing",
+                options: [
+                  { label: "Sine", value: "sine" },
+                  { label: "Linear", value: "linear" },
+                  { label: "Ease in", value: "ease-in" },
+                  { label: "Ease out", value: "ease-out" },
+                  { label: "Ease in-out", value: "ease-in-out" },
+                ],
+                orderRole: "detail",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.reliefWaveEasing,
+                type: "select",
+              } satisfies ToolcraftControlSchema,
               commands: {
                 actions: [{ icon: "rotate-ccw", label: "Reset edits", value: ISO_RELIEF_ACTIONS.resetEdits }],
                 applicability: always,
@@ -423,5 +517,11 @@ export const appSchema = defineToolcraft({
       zoom: true,
     },
   },
-  modules: [mediaSourceModule(), canvasEditingModule(), imageExportModule()],
+  modules: [
+    mediaSourceModule(),
+    canvasEditingModule(),
+    timelineModule({ defaultDurationSeconds: ISO_WAVE_LOOP_SECONDS, mode: "playback" }),
+    imageExportModule(),
+    videoExportModule(),
+  ],
 });

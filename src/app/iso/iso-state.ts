@@ -1,4 +1,4 @@
-import type { ToolcraftCommand } from "@/toolcraft/runtime";
+import { getToolcraftTimelineLoopProgress, type ToolcraftCommand } from "@/toolcraft/runtime";
 
 import {
   filterRenderablePlacements,
@@ -18,14 +18,19 @@ import {
 import {
   composeReliefHeights,
   getPatternHeights,
+  getUniformHeights,
   ISO_MAX_COLUMN_LEVELS,
   ISO_RELIEF_CORNERS,
   ISO_RELIEF_EDGES,
   ISO_RELIEF_PATTERNS,
+  ISO_WAVE_DIRECTIONS,
+  ISO_WAVE_EASINGS,
   type IsoReliefCorner,
   type IsoReliefEdge,
   type IsoReliefPattern,
   type IsoReliefSettings,
+  type IsoWaveDirection,
+  type IsoWaveEasing,
 } from "./iso-relief";
 import { buildIsoSceneModel } from "./iso-scene-model";
 
@@ -45,12 +50,17 @@ export const ISO_TARGETS = {
   libraryObjects: "library.objects",
   padding: "output.padding",
   placements: "field.placements",
+  presets: "presets.apply",
   reliefCommands: "relief.commands",
   reliefCorner: "relief.corner",
   reliefEdge: "relief.edge",
   reliefMax: "relief.max",
   reliefPattern: "relief.pattern",
   reliefStep: "relief.step",
+  reliefWave: "relief.wave",
+  reliefWaveDirection: "relief.waveDirection",
+  reliefWaveEasing: "relief.waveEasing",
+  reliefWaveLength: "relief.waveLength",
   selection: "field.selection",
   showPieces: "output.showPieces",
   tool: "field.tool",
@@ -91,6 +101,10 @@ export const ISO_DEFAULTS = {
   reliefMax: 4,
   reliefPattern: "flat" as IsoReliefPattern,
   reliefStep: 2,
+  reliefWave: false,
+  reliefWaveDirection: "outward" as IsoWaveDirection,
+  reliefWaveEasing: "sine" as IsoWaveEasing,
+  reliefWaveLength: 6,
   showPieces: true,
   tool: "place" as IsoTool,
 } as const;
@@ -127,8 +141,16 @@ export type IsoMediaAssetLike = Readonly<{
 
 export type IsoStateSource = Readonly<{
   mediaAssets: readonly IsoMediaAssetLike[];
+  /** Playback clock; the relief wave is at rest when it is absent. */
+  timeline?: Readonly<{ currentTimeSeconds: number; durationSeconds: number }>;
   values: Readonly<Record<string, unknown>>;
 }>;
+
+/** Default loop length: one crest passes in four seconds, a calm pace at the default wave length. */
+export const ISO_WAVE_LOOP_SECONDS = 4;
+
+/** Wave length range in cells between two crests. */
+export const ISO_WAVE_LENGTH_RANGE = { max: 12, min: 2 } as const;
 
 function isRecord(value: unknown): value is Record<string, unknown> {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -329,6 +351,10 @@ export function readIsoReliefEdits(values: IsoStateSource["values"]): Map<string
 }
 
 export type IsoReliefLayers = Readonly<{
+  /** Height range over the loop while a wave runs; null for a static relief. */
+  range: Readonly<{ high: IsoHeightMap; low: IsoHeightMap }> | null;
+  /** A running wave levels multi-cell pieces itself, so uneven columns do not block placing. */
+  animated: boolean;
   edits: IsoHeightMap;
   /** Final column heights shown on the field. */
   heights: IsoHeightMap;
@@ -338,12 +364,23 @@ export type IsoReliefLayers = Readonly<{
 /** The live pattern, the hand edits over it, and the resulting column heights. */
 export function getIsoReliefLayers(state: IsoStateSource): IsoReliefLayers {
   const gridSize = getIsoGridSize(state.values);
-  const pattern = getPatternHeights(readIsoReliefSettings(state.values), gridSize);
+  const settings = readIsoReliefSettings(state);
+  const pattern = getPatternHeights(settings, gridSize);
   const edits = readIsoReliefEdits(state.values);
+  const placements = getIsoActivePlacements(state);
+  // A wave crest sweeps every column between the ground and the peak height.
+  const range = settings.wave
+    ? {
+        high: composeReliefHeights(getUniformHeights(settings.max, gridSize), edits, gridSize, placements),
+        low: composeReliefHeights(getUniformHeights(0, gridSize), edits, gridSize, placements),
+      }
+    : null;
   return {
+    animated: settings.wave !== null,
     edits,
-    heights: composeReliefHeights(pattern, edits, gridSize, getIsoActivePlacements(state)),
+    heights: composeReliefHeights(pattern, edits, gridSize, placements),
     pattern,
+    range,
   };
 }
 
@@ -351,13 +388,49 @@ function readOption<T extends string>(value: unknown, options: readonly T[], fal
   return options.includes(value as T) ? (value as T) : fallback;
 }
 
-export function readIsoReliefSettings(values: IsoStateSource["values"]): IsoReliefSettings {
+/** Whether the wave is on for a pattern it can move (Flat has nothing to animate). */
+export function isIsoWaveActive(values: IsoStateSource["values"]): boolean {
+  return values[ISO_TARGETS.reliefWave] === true && readOption(values[ISO_TARGETS.reliefPattern], ISO_RELIEF_PATTERNS, ISO_DEFAULTS.reliefPattern) !== "flat";
+}
+
+function pickHeights(layers: IsoReliefLayers): Pick<IsoSceneInput, "heightRange" | "heights"> {
+  return { heightRange: layers.range, heights: layers.heights };
+}
+
+/** Loop progress of the playback clock in [0, 1). */
+export function getIsoLoopProgress(state: IsoStateSource): number {
+  return state.timeline ? getToolcraftTimelineLoopProgress(state.timeline) : 0;
+}
+
+/** The same state pinned to a loop progress, as an exported video frame sees it. */
+export function withIsoLoopProgress<State extends IsoStateSource>(state: State, progress: number): State {
+  return { ...state, timeline: { currentTimeSeconds: progress, durationSeconds: 1 } };
+}
+
+export function readIsoReliefSettings(state: IsoStateSource): IsoReliefSettings {
+  const { values } = state;
   return {
     corner: readOption(values[ISO_TARGETS.reliefCorner], ISO_RELIEF_CORNERS, ISO_DEFAULTS.reliefCorner),
     edge: readOption(values[ISO_TARGETS.reliefEdge], ISO_RELIEF_EDGES, ISO_DEFAULTS.reliefEdge),
     max: clamp(Math.round(finiteNumber(values[ISO_TARGETS.reliefMax], ISO_DEFAULTS.reliefMax)), 0, 8),
     pattern: readOption(values[ISO_TARGETS.reliefPattern], ISO_RELIEF_PATTERNS, ISO_DEFAULTS.reliefPattern),
     step: clamp(Math.round(finiteNumber(values[ISO_TARGETS.reliefStep], ISO_DEFAULTS.reliefStep)), 1, 4),
+    wave: isIsoWaveActive(values)
+      ? {
+          direction: readOption(
+            values[ISO_TARGETS.reliefWaveDirection],
+            ISO_WAVE_DIRECTIONS,
+            ISO_DEFAULTS.reliefWaveDirection,
+          ),
+          easing: readOption(values[ISO_TARGETS.reliefWaveEasing], ISO_WAVE_EASINGS, ISO_DEFAULTS.reliefWaveEasing),
+          length: clamp(
+            Math.round(finiteNumber(values[ISO_TARGETS.reliefWaveLength], ISO_DEFAULTS.reliefWaveLength)),
+            ISO_WAVE_LENGTH_RANGE.min,
+            ISO_WAVE_LENGTH_RANGE.max,
+          ),
+          progress: getIsoLoopProgress(state),
+        }
+      : null,
   };
 }
 
@@ -391,7 +464,7 @@ export function readIsoSceneInput(state: IsoStateSource): IsoSceneInput {
     cellSize,
     crop: readCropMode(values[ISO_TARGETS.crop]),
     gridSize: getIsoGridSize(values),
-    heights: getIsoReliefLayers(state).heights,
+    ...pickHeights(getIsoReliefLayers(state)),
     hideHiddenLines: values[ISO_TARGETS.hideHiddenLines] === true,
     includeGrid: values[ISO_TARGETS.includeGrid] === true,
     levelHeight: (cellSize * levelPercent) / 100,

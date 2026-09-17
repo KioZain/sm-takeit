@@ -3,6 +3,7 @@ import type {
   ToolcraftProductReadiness,
   ToolcraftTransferMode,
 } from "./acceptance/types";
+import { appMotionAcceptance, videoExportRequestEvidence } from "./app-acceptance-motion";
 import { appReliefAcceptance } from "./app-acceptance-relief";
 import { appInteractionOwnership, canvasPlacementCommand } from "./app-interaction-ownership";
 import { appSchema } from "./app-schema";
@@ -45,7 +46,15 @@ const specs = {
 } as const;
 
 export const appTransferMode: ToolcraftTransferMode = {
-  animationIntent: { mode: "none" },
+  animationIntent: {
+    loopDuration: {
+      evidence:
+        "One loop moves the wave by exactly one crest; four seconds keeps the default six-cell wave calm and readable at card size.",
+      seconds: 4,
+      source: "product-derived",
+    },
+    mode: "timeline-playback",
+  },
   mode: "new-toolcraft-app",
   referenceInputs: [],
 };
@@ -54,7 +63,7 @@ export const appProductReadiness: ToolcraftProductReadiness = {
   exportIntent: {
     image: { mode: "toolcraft-default" },
     svg: { mode: "not-requested" },
-    video: { mode: "not-requested" },
+    video: { evidence: videoExportRequestEvidence, mode: "user-requested" },
   },
   interactionOwnership: appInteractionOwnership,
   mode: "product",
@@ -62,7 +71,7 @@ export const appProductReadiness: ToolcraftProductReadiness = {
   productSummary:
     "Builds isometric sushi set compositions from transparent PNG rolls placed on a dashed vector isometric grid.",
   requestedBehavior:
-    "Upload roll PNGs, configure footprint, anchor, and scale per object, place, fill, select, and erase pieces on a 2×2 to 8×8 rhombus grid, raise columns by hand with magnetic snapping or from relief patterns, preview the set at app card widths, and export a cropped transparent PNG.",
+    "Upload roll PNGs, configure footprint, anchor, and scale per object, place, fill, select, and erase pieces on a 2×2 to 8×8 rhombus grid, raise columns by hand with magnetic snapping or from relief patterns, loop the relief as a smooth travelling wave on the timeline, preview the set at app card widths, and export a cropped transparent PNG.",
   viewInteraction: {
     mode: "non-spatial",
     reason:
@@ -98,6 +107,7 @@ export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
       "finite-media-stacking",
       "image-transparent-when-excluded",
       "infinity-viewport-color-and-dependency",
+      "video-background-preserved",
       "preview-hidden-when-excluded",
     ],
     browser: {
@@ -381,6 +391,7 @@ export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
     userAction: "Click a piece with Erase, then click inside the selected section.",
   },
   ...appReliefAcceptance,
+  ...appMotionAcceptance,
   {
     automated: true,
     automatedTestName: "crop modes frame the field or the content",
@@ -488,7 +499,7 @@ export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
     userAction: "Select each resolution and export.",
   },
   {
-    actionCoverage: ["export.png"],
+    actionCoverage: ["export.png", "export.video"],
     automated: true,
     automatedTestName: "image export renders the placed set",
     browser: {

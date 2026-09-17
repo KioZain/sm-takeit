@@ -39,6 +39,24 @@ export type IsoReliefSettings = Readonly<{
   pattern: IsoReliefPattern;
   /** Cells per level of falloff. */
   step: number;
+  /** Travelling wave over the pattern's geometry; null keeps the static relief. */
+  wave: IsoReliefWave | null;
+}>;
+
+export const ISO_WAVE_DIRECTIONS = ["outward", "inward"] as const;
+export type IsoWaveDirection = (typeof ISO_WAVE_DIRECTIONS)[number];
+
+export const ISO_WAVE_EASINGS = ["sine", "linear", "ease-in", "ease-out", "ease-in-out"] as const;
+export type IsoWaveEasing = (typeof ISO_WAVE_EASINGS)[number];
+
+export type IsoReliefWave = Readonly<{
+  direction: IsoWaveDirection;
+  /** Shape of each rise and fall between trough and crest. */
+  easing: IsoWaveEasing;
+  /** Cells between two crests. */
+  length: number;
+  /** Loop progress in [0, 1); one full wave period per loop. */
+  progress: number;
 }>;
 
 /** Highest column a hand edit may reach, in levels. */
@@ -73,35 +91,96 @@ function edgeDistance(edge: IsoReliefEdge, cell: IsoCell, last: number): number 
   }
 }
 
-/** Pattern height of one cell in whole levels. */
-export function getReliefLevel(settings: IsoReliefSettings, cell: IsoCell, gridSize: number): number {
+type PatternGeometry =
+  | Readonly<{ distance: number; kind: "slope" }>
+  | Readonly<{ kind: "alternate"; raised: boolean }>
+  | Readonly<{ kind: "flat" }>;
+
+/** How far a cell is from the pattern's peak, or which alternate set it belongs to. */
+function getPatternGeometry(settings: IsoReliefSettings, cell: IsoCell, gridSize: number): PatternGeometry {
   const last = gridSize - 1;
-  const max = Math.max(0, Math.round(settings.max));
-  const falloff = (distance: number) =>
-    Math.max(0, max - Math.floor(distance / Math.max(1, Math.round(settings.step))));
   switch (settings.pattern) {
     case "flat":
-      return 0;
+      return { kind: "flat" };
     case "checker":
-      return (cell.col + cell.row) % 2 === 0 ? max : 0;
+      return { kind: "alternate", raised: (cell.col + cell.row) % 2 === 0 };
     case "alternate-rows":
-      return cell.row % 2 === 0 ? max : 0;
+      return { kind: "alternate", raised: cell.row % 2 === 0 };
     case "alternate-cols":
-      return cell.col % 2 === 0 ? max : 0;
+      return { kind: "alternate", raised: cell.col % 2 === 0 };
     case "edge":
-      return falloff(edgeDistance(settings.edge, cell, last));
+      return { distance: edgeDistance(settings.edge, cell, last), kind: "slope" };
     case "pyramid": {
       const ring = Math.min(cell.col, cell.row, last - cell.col, last - cell.row);
-      return falloff(Math.floor(last / 2) - ring);
+      return { distance: Math.floor(last / 2) - ring, kind: "slope" };
     }
     case "corner-rings": {
       const peak = cornerCell(settings.corner, last);
-      return falloff(Math.max(Math.abs(cell.col - peak.col), Math.abs(cell.row - peak.row)));
+      return {
+        distance: Math.max(Math.abs(cell.col - peak.col), Math.abs(cell.row - peak.row)),
+        kind: "slope",
+      };
     }
     default: {
       const peak = cornerCell(settings.corner, last);
-      return falloff(Math.abs(cell.col - peak.col) + Math.abs(cell.row - peak.row));
+      return { distance: Math.abs(cell.col - peak.col) + Math.abs(cell.row - peak.row), kind: "slope" };
     }
+  }
+}
+
+/** Maps linear rise progress in [0, 1] to eased progress in [0, 1]. */
+function ease(easing: IsoWaveEasing, t: number): number {
+  switch (easing) {
+    case "linear":
+      return t;
+    case "ease-in":
+      return t ** 3;
+    case "ease-out":
+      return 1 - (1 - t) ** 3;
+    case "ease-in-out":
+      return t < 0.5 ? 4 * t ** 3 : 1 - (-2 * t + 2) ** 3 / 2;
+    default:
+      return 0.5 - 0.5 * Math.cos(Math.PI * t);
+  }
+}
+
+/**
+ * 0→1→0 crest for a phase measured in wave periods: the first half rises and
+ * the second half falls with the same easing, so every loop stays seamless.
+ */
+function crest(phase: number, easing: IsoWaveEasing): number {
+  const cycle = phase - Math.floor(phase);
+  return ease(easing, 1 - Math.abs(2 * cycle - 1));
+}
+
+/**
+ * Wave height in levels. The crest leaves the peak (outward) or returns to it
+ * (inward) and travels one period per loop, so the first and last frames match.
+ * Alternate patterns swap their raised and lowered sets half a period apart.
+ */
+function getWaveLevel(geometry: PatternGeometry, max: number, wave: IsoReliefWave): number {
+  if (geometry.kind === "flat") return 0;
+  if (geometry.kind === "alternate") {
+    return max * crest(wave.progress + (geometry.raised ? 0.5 : 0), wave.easing);
+  }
+  const offset = geometry.distance / Math.max(1, wave.length);
+  const phase = wave.direction === "outward" ? wave.progress - offset : wave.progress + offset;
+  // Round away float noise so columns that share a phase keep equal heights.
+  return Math.round(max * crest(phase + 0.5, wave.easing) * 1e6) / 1e6;
+}
+
+/** Pattern height of one cell in levels (whole levels unless a wave is running). */
+export function getReliefLevel(settings: IsoReliefSettings, cell: IsoCell, gridSize: number): number {
+  const max = Math.max(0, Math.round(settings.max));
+  const geometry = getPatternGeometry(settings, cell, gridSize);
+  if (settings.wave) return getWaveLevel(geometry, max, settings.wave);
+  switch (geometry.kind) {
+    case "flat":
+      return 0;
+    case "alternate":
+      return geometry.raised ? max : 0;
+    default:
+      return Math.max(0, max - Math.floor(geometry.distance / Math.max(1, Math.round(settings.step))));
   }
 }
 
@@ -141,6 +220,11 @@ export function levelFootprints(
         ...cells.map((cell): [string, number] => [heightKey(cell.col, cell.row), highest]),
       ]);
     }, new Map(heights));
+}
+
+/** Every cell at one level, e.g. the trough or crest of a running wave. */
+export function getUniformHeights(level: number, gridSize: number): Map<string, number> {
+  return new Map(getGridCells(gridSize).map((cell): [string, number] => [heightKey(cell.col, cell.row), level]));
 }
 
 /** Live pattern levels for every cell of the field. */

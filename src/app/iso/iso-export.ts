@@ -15,6 +15,7 @@ import {
   buildIsoSceneModelFromState,
   getIsoLibraryAssets,
   readIsoSceneInput,
+  withIsoLoopProgress,
 } from "./iso-state";
 
 type IsoExportContext = ToolcraftProductExportFrameContext["context"];
@@ -58,12 +59,13 @@ function drawIsoGuide(context: IsoExportContext, model: IsoSceneModel) {
  */
 export const isoRasterFrameRenderer = {
   baseFileName: "sushi-set",
-  async renderFrame({ context, rendererPipeline, signal, state }) {
+  async renderFrame({ context, rendererPipeline, signal, state, timelineProgress }) {
     if (!rendererPipeline) {
       throw new Error("The sushi set renderer pipeline is unavailable.");
     }
-    const input = readIsoSceneInput(state);
-    const model = buildIsoSceneModelFromState(state);
+    const frameState = withIsoLoopProgress(state, timelineProgress);
+    const input = readIsoSceneInput(frameState);
+    const model = buildIsoSceneModelFromState(frameState);
     const resourceRefs = new Map(
       getIsoLibraryAssets(state.mediaAssets).flatMap((asset) =>
         "resourceRef" in asset ? [[asset.id, asset.resourceRef] as const] : [],

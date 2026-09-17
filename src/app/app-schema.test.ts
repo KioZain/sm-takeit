@@ -113,10 +113,8 @@ describe("appSchema", () => {
     expect(appSchema.panels.timeline).toBeUndefined();
   });
 
-  it("does not imply timeline behavior before a product needs it", () => {
-    expect(appSchema.assembly.capabilities).not.toContain(
-      "timeline.playback",
-    );
+  it("uses playback for the relief wave without keyframe editing", () => {
+    expect(appSchema.assembly.capabilities).toContain("timeline.playback");
     expect(appSchema.assembly.capabilities).not.toContain(
       "timeline.keyframes",
     );

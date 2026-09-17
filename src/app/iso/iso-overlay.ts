@@ -2,6 +2,7 @@ import { getRaisedFootprintDiamond } from "./iso-columns";
 import {
   getIsoCellRectTops,
   getIsoEraseTarget,
+  getIsoPlacementHeights,
   startIsoHeightDrag,
   type IsoFieldContext,
   type IsoHeightGesture,
@@ -53,7 +54,7 @@ function getPlaceHover(field: IsoFieldContext, cursor: IsoCell): IsoOverlayPath 
     cursor.row,
     footprint,
     field.gridSize,
-    field.space.heights,
+    getIsoPlacementHeights(field),
   ).ok;
   const levels = Math.max(
     0,

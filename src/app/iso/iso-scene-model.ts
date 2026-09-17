@@ -13,12 +13,26 @@ import {
   sortPlacementsForDrawing,
   toIntegerFrame,
   unionRects,
+  type IsoHeightMap,
+  type IsoPlacement,
+  type IsoRect,
   type IsoSceneInput,
   type IsoSceneItem,
   type IsoSceneModel,
 } from "./iso-geometry";
 
 const GRID_STROKE_MARGIN = 2;
+
+/** Ground field stretched up to the highest column top of `heights`. */
+function getRaisedFieldBounds(input: IsoSceneInput, heights: IsoHeightMap): IsoRect {
+  const ground = getFieldBounds(input.gridSize, input.cellSize);
+  const tops = [...heights].map(([key, level]) => {
+    const [col = 0, row = 0] = key.split(",").map(Number);
+    return ((col + row) * input.cellSize) / 4 - level * input.levelHeight;
+  });
+  const top = Math.min(ground.y, ...tops);
+  return { ...ground, height: ground.y + ground.height - top, y: top };
+}
 
 export function getIsoColumnSpace(input: IsoSceneInput): IsoColumnSpace {
   return {
@@ -41,6 +55,8 @@ export function buildIsoSceneModel(input: IsoSceneInput): IsoSceneModel {
       getFieldBounds(input.gridSize, input.cellSize),
       getPointsBounds(guide.flatMap((segment) => [segment.from, segment.to])),
     ]) ?? getFieldBounds(input.gridSize, input.cellSize);
+  const range = input.heightRange;
+  const frameField = range ? (unionRects([field, getRaisedFieldBounds(input, range.high)]) ?? field) : field;
   const renderable = filterRenderablePlacements(
     input.placements,
     new Set(Object.keys(input.objects)),
@@ -64,16 +80,25 @@ export function buildIsoSceneModel(input: IsoSceneInput): IsoSceneModel {
       record,
     };
   });
-  const content = input.showPieces
-    ? unionRects(items.map((item) => item.imageRect ?? getPointsBounds(item.diamond)))
-    : null;
+  const elevationIn = (heights: IsoHeightMap, placement: IsoPlacement) =>
+    Math.max(0, ...getFootprintHeights(placement, heights)) * input.levelHeight;
+  // While animating, each piece counts at its lowest and highest elevation of the loop.
+  const pieceRects = items.flatMap((item) =>
+    range
+      ? [
+          getPlacementImageRect(item.placement, item.record, input.cellSize, elevationIn(range.low, item.placement)),
+          getPlacementImageRect(item.placement, item.record, input.cellSize, elevationIn(range.high, item.placement)),
+        ]
+      : [item.imageRect ?? getPointsBounds(item.diamond)],
+  );
+  const content = input.showPieces ? unionRects(pieceRects) : null;
   const padding = Math.max(0, input.padding);
   const rawFrame =
     input.crop === "content"
-      ? expandRect(unionRects([content ?? field, input.includeGrid ? field : null])!, padding)
+      ? expandRect(unionRects([content ?? frameField, input.includeGrid ? frameField : null])!, padding)
       : input.crop === "field"
-        ? expandRect(unionRects([field, content])!, padding)
-        : expandRect(unionRects([field, content])!, GRID_STROKE_MARGIN);
+        ? expandRect(unionRects([frameField, content])!, padding)
+        : expandRect(unionRects([frameField, content])!, GRID_STROKE_MARGIN);
   const frame = toIntegerFrame(rawFrame);
   const center = { x: frame.x + frame.width / 2, y: frame.y + frame.height / 2 };
   return {

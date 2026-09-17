@@ -52,7 +52,10 @@ import {
   getIsoActivePlacements,
   getIsoOffGridPlacements,
   getIsoLibraryAssets,
+  getIsoLoopProgress,
   getIsoReliefLayers,
+  isIsoWaveActive,
+  withIsoLoopProgress,
   getIsoLibraryObjects,
   normalizeIsoObjectRecord,
   readIsoGridVisible,
@@ -69,6 +72,8 @@ import styles from "./iso-canvas.module.css";
 const selectValues = (state: ToolcraftState) => state.values;
 const selectMediaAssets = (state: ToolcraftState) => state.mediaAssets;
 const selectCanvas = (state: ToolcraftState) => state.canvas;
+const selectTimeSeconds = (state: ToolcraftState) => state.timeline.currentTimeSeconds;
+const selectDurationSeconds = (state: ToolcraftState) => state.timeline.durationSeconds;
 
 /** Keeps decoded object images registered and object records complete. */
 function useIsoLibrarySync(source: IsoStateSource & { mediaAssets: readonly ToolcraftMediaAsset[] }) {
@@ -235,7 +240,17 @@ export function IsoCanvas(): React.JSX.Element | null {
   const frame = useToolcraftProductSceneFrame();
   const values = useToolcraftSelector(selectValues);
   const mediaAssets = useToolcraftSelector(selectMediaAssets);
-  const source = React.useMemo(() => ({ mediaAssets, values }), [mediaAssets, values]);
+  const waveActive = isIsoWaveActive(values);
+  const timeSeconds = useToolcraftSelector(selectTimeSeconds);
+  const durationSeconds = useToolcraftSelector(selectDurationSeconds);
+  // Only a running wave depends on the clock, so a static relief is not rebuilt every frame.
+  const loopProgress = waveActive
+    ? getIsoLoopProgress({ mediaAssets, timeline: { currentTimeSeconds: timeSeconds, durationSeconds }, values })
+    : 0;
+  const source = React.useMemo(
+    () => withIsoLoopProgress({ mediaAssets, values }, loopProgress),
+    [loopProgress, mediaAssets, values],
+  );
   const sourceRef = React.useRef(source);
   sourceRef.current = source;
 
@@ -264,6 +279,11 @@ export function IsoCanvas(): React.JSX.Element | null {
       "relief.max": values[ISO_TARGETS.reliefMax],
       "relief.pattern": values[ISO_TARGETS.reliefPattern],
       "relief.step": values[ISO_TARGETS.reliefStep],
+      "relief.wave": values[ISO_TARGETS.reliefWave],
+      "relief.waveDirection": values[ISO_TARGETS.reliefWaveDirection],
+      "relief.waveEasing": values[ISO_TARGETS.reliefWaveEasing],
+      "relief.waveLength": values[ISO_TARGETS.reliefWaveLength],
+      "timeline.time": loopProgress,
     },
     () => buildIsoSceneModelFromState(sourceRef.current),
   );

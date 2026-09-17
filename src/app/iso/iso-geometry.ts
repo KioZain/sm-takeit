@@ -57,6 +57,11 @@ export type IsoSceneInput = Readonly<{
   cellSize: number;
   crop: IsoCropMode;
   gridSize: number;
+  /**
+   * Lowest and highest heights each column reaches over an animation loop. When
+   * present, the frame covers the whole range so it stays still while playing.
+   */
+  heightRange: Readonly<{ high: IsoHeightMap; low: IsoHeightMap }> | null;
   heights: IsoHeightMap;
   /** Clip guide lines and faces hidden behind raised columns. */
   hideHiddenLines: boolean;
