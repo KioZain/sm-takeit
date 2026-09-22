@@ -77,7 +77,7 @@ export function IsoCompositionControl({
   return (
     <div className={styles.composition} data-iso-control={controlId}>
       {summary.rows.length > 0 ? (
-        <ul aria-label="Pieces per object" className={styles.counts}>
+        <ul aria-label="Роллов на объект" className={styles.counts}>
           {summary.rows.map((row) => (
             <li className={styles.countRow} data-iso-count={row.id} key={row.id}>
               {urls.get(row.id) ? (
@@ -92,7 +92,7 @@ export function IsoCompositionControl({
         </ul>
       ) : null}
       <div className={styles.total}>
-        <span>Total</span>
+        <span>Всего</span>
         <span className={styles.totalValue} data-iso-total="">
           {summary.total}
         </span>

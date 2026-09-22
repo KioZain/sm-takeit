@@ -66,6 +66,7 @@ import {
   ISO_FIELD_HANDLE_TEST_ID,
   ISO_TARGETS,
   type IsoStateSource,
+  type IsoTool,
 } from "./iso-state";
 import styles from "./iso-canvas.module.css";
 
@@ -129,7 +130,7 @@ function useIsoLibrarySync(source: IsoStateSource & { mediaAssets: readonly Tool
               ),
             },
           },
-          "Add objects",
+          "Добавить объекты",
           "skip",
         ),
       );
@@ -164,7 +165,7 @@ function useIsoLibrarySync(source: IsoStateSource & { mediaAssets: readonly Tool
         dispatch(
           createIsoLibraryCommand(
             { activeId: latest.activeId, items: { ...latest.items, ...Object.fromEntries(sized) } },
-            "Measure objects",
+            "Измерить объекты",
             "skip",
           ),
         );
@@ -218,7 +219,7 @@ function useIsoArtboardFit(model: IsoSceneModel | null, crop: IsoCropMode) {
     if (crop !== "off" && frameChanged && current.mode === "finite") {
       dispatch({
         history: "skip",
-        label: "Fit artboard",
+        label: "Подогнать артборд",
         mode: "finite",
         size: { height: next.height, unit: "px", width: next.width },
         type: "canvas.applySettings",
@@ -227,6 +228,13 @@ function useIsoArtboardFit(model: IsoSceneModel | null, crop: IsoCropMode) {
   }, [crop, dispatch, model]);
 }
 
+const ISO_TOOL_NAMES: Readonly<Record<IsoTool, string>> = {
+  erase: "Ластик",
+  height: "Высота",
+  place: "Ставить",
+  select: "Выбор",
+};
+
 const KEY_STEPS: Readonly<Record<string, IsoCell>> = {
   ArrowDown: { col: 1, row: 1 },
   ArrowLeft: { col: -1, row: 1 },
@@ -234,7 +242,13 @@ const KEY_STEPS: Readonly<Record<string, IsoCell>> = {
   ArrowUp: { col: -1, row: -1 },
 };
 
+/** Public page name; index.html is framework-owned, so the tab title is set here. */
+const ISO_PAGE_TITLE = "Тэйкидо";
+
 export function IsoCanvas(): React.JSX.Element | null {
+  React.useEffect(() => {
+    document.title = ISO_PAGE_TITLE;
+  }, []);
   const dispatch = useToolcraftDispatch();
   const pipeline = useToolcraftPipeline();
   const frame = useToolcraftProductSceneFrame();
@@ -264,9 +278,9 @@ export function IsoCanvas(): React.JSX.Element | null {
     {
       "field.placements": values[ISO_TARGETS.placements],
       "grid.cellSize": values[ISO_TARGETS.cellSize],
-      "grid.hideHiddenLines": values[ISO_TARGETS.hideHiddenLines],
       "grid.levelHeight": values[ISO_TARGETS.levelHeight],
-      "grid.size": values[ISO_TARGETS.gridSize],
+      "grid.cols": values[ISO_TARGETS.gridCols],
+      "grid.rows": values[ISO_TARGETS.gridRows],
       "library.files": libraryKey,
       "library.objects": values[ISO_TARGETS.libraryObjects],
       "output.crop": values[ISO_TARGETS.crop],
@@ -422,8 +436,8 @@ export function IsoCanvas(): React.JSX.Element | null {
       const origin = cursor ?? { col: 0, row: 0 };
       setErasePoint(null);
       setCursor({
-        col: Math.min(input.gridSize - 1, Math.max(0, origin.col + (cursor ? step.col : 0))),
-        row: Math.min(input.gridSize - 1, Math.max(0, origin.row + (cursor ? step.row : 0))),
+        col: Math.min(input.gridSize.cols - 1, Math.max(0, origin.col + (cursor ? step.col : 0))),
+        row: Math.min(input.gridSize.rows - 1, Math.max(0, origin.row + (cursor ? step.row : 0))),
       });
       return;
     }
@@ -472,7 +486,7 @@ export function IsoCanvas(): React.JSX.Element | null {
         <IsoSceneLayers appearance={{ showGrid: gridVisible }} imageUrls={urls} model={model} />
       </svg>
       <Button
-        aria-label={`Sushi set field, ${tool} tool`}
+        aria-label={`Поле сета, инструмент «${ISO_TOOL_NAMES[tool]}»`}
         className={styles.fieldHandle}
         data-iso-tool={tool}
         data-slot="iso-field-handle"

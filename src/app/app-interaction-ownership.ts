@@ -37,21 +37,6 @@ export const appInteractionOwnership: readonly ToolcraftInteractionOwnershipEntr
   },
   {
     alternative: {
-      reason: "Numeric section ranges in the panel would hide which cells are covered.",
-      surface: "panel",
-    },
-    capability: "spatial-selection",
-    evidence: {
-      detail: "The request says dragging with the mouse selects a rectangular area of cells.",
-      source: "user-request",
-    },
-    id: "field-select",
-    reason: "The canvas owns section selection because it is a drag over the visible cells.",
-    surface: "canvas",
-    target: canvasPlacementCommand,
-  },
-  {
-    alternative: {
       reason: "A panel list of pieces could not show which piece sits where on the field.",
       surface: "panel",
     },
@@ -110,36 +95,6 @@ export const appInteractionOwnership: readonly ToolcraftInteractionOwnershipEntr
     selectionScope: { mode: "selected-entity", selectionInteractionId: "object-select" },
     surface: "panel",
     target: ISO_TARGETS.libraryObjects,
-  },
-  {
-    alternative: {
-      reason: "Per-cell number fields in the panel would hide which column is being raised.",
-      surface: "panel",
-    },
-    capability: "direct-spatial-edit",
-    evidence: {
-      detail: "The request asks to raise specific columns by hand with Figma-like magnetic snapping to neighbours.",
-      source: "user-request",
-    },
-    id: "field-height",
-    reason: "The canvas owns column heights because the user drags the column they see.",
-    surface: "canvas",
-    target: canvasPlacementCommand,
-  },
-  {
-    alternative: {
-      reason: "Canvas buttons would put app chrome over the product output.",
-      surface: "canvas",
-    },
-    capability: "command",
-    evidence: {
-      detail: "The request asks for relief patterns that update live, with hand edits kept separately.",
-      source: "user-request",
-    },
-    id: "relief-commands",
-    reason: "The panel owns resetting hand height edits for the field or selection.",
-    surface: "panel",
-    target: ISO_TARGETS.reliefCommands,
   },
   {
     alternative: {

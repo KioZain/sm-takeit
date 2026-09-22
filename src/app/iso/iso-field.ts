@@ -8,6 +8,7 @@ import {
   placeObject,
   type IsoCell,
   type IsoCellRect,
+  type IsoGridSize,
   type IsoHeightMap,
   type IsoPlacement,
   type IsoPoint,
@@ -38,7 +39,7 @@ import {
 export type IsoFieldContext = Readonly<{
   active: IsoLibraryObject | null;
   cellSize: number;
-  gridSize: number;
+  gridSize: IsoGridSize;
   model: IsoSceneModel;
   /** Hidden pieces outside the current grid, appended to every edit. */
   offGrid: readonly IsoPlacement[];
@@ -145,20 +146,20 @@ export function getIsoCellCommand(
       field.gridSize,
       getIsoPlacementHeights(field),
     );
-    return next ? createIsoPlacementsCommand([...next, ...field.offGrid], "Place object") : null;
+    return next ? createIsoPlacementsCommand([...next, ...field.offGrid], "Поставить объект") : null;
   }
   if (field.tool !== "erase") return null;
   const target = getIsoEraseTarget(field, cell, point);
   if (target.kind === "selection") {
     return createIsoPlacementsCommand(
       [...eraseCellRect(field.placements, target.rect), ...field.offGrid],
-      "Erase section",
+      "Стереть секцию",
     );
   }
   if (target.kind === "placement") {
     return createIsoPlacementsCommand(
       [...field.placements.filter((placement) => placement.id !== target.id), ...field.offGrid],
-      "Erase object",
+      "Стереть объект",
     );
   }
   return null;
@@ -221,7 +222,7 @@ export function moveIsoHeightDrag(
     threshold: (ISO_SNAP_DISTANCE_PX * gesture.unitsPerPixel) / levelPx,
   });
   return {
-    command: toEditsCommand(field, gesture.drag, result.heights, "Adjust column height", {
+    command: toEditsCommand(field, gesture.drag, result.heights, "Изменить высоту колонки", {
       group: gesture.group,
       mode: "merge",
     }),
@@ -245,7 +246,7 @@ export function getIsoHeightStepCommand(
   });
   return result.level === drag.origin
     ? null
-    : toEditsCommand(field, drag, result.heights, direction > 0 ? "Raise columns" : "Lower columns");
+    : toEditsCommand(field, drag, result.heights, direction > 0 ? "Поднять колонки" : "Опустить колонки");
 }
 
 export function moveIsoSelectDrag(

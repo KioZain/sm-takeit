@@ -43,7 +43,7 @@ export function handleIsoPanelAction({
     dispatch(
       createIsoReliefEditsCommand(
         clearReliefEdits(relief.edits, rect),
-        rect ? "Reset section edits" : "Reset height edits",
+        rect ? "Сброс правок секции" : "Сброс правок высоты",
       ),
     );
     return;
@@ -51,7 +51,7 @@ export function handleIsoPanelAction({
 
   if (action.value === ISO_ACTIONS.clearField) {
     if (placements.length > 0 || state.values["field.placements"] !== undefined) {
-      dispatch(createIsoPlacementsCommand([], "Clear field"));
+      dispatch(createIsoPlacementsCommand([], "Очистить поле"));
     }
     return;
   }
@@ -65,19 +65,19 @@ export function handleIsoPanelAction({
   if (!active) {
     reportFeedback({
       code: "iso-no-active-object",
-      message: "Upload an object image and select it in the library first.",
+      message: "Сначала загрузите изображение объекта и выберите его в библиотеке.",
     });
     return;
   }
 
   const rect =
     action.value === ISO_ACTIONS.fillField
-      ? { col0: 0, col1: gridSize - 1, row0: 0, row1: gridSize - 1 }
+      ? { col0: 0, col1: gridSize.cols - 1, row0: 0, row1: gridSize.rows - 1 }
       : selection;
   if (!rect) {
     reportFeedback({
       code: "iso-no-selection",
-      message: "Select a section on the canvas with the Select tool first.",
+      message: "Сначала выделите секцию на холсте инструментом Выбор.",
     });
     return;
   }
@@ -86,7 +86,7 @@ export function handleIsoPanelAction({
   dispatch(
     createIsoPlacementsCommand(
       [...next, ...getIsoOffGridPlacements(state)],
-      action.value === ISO_ACTIONS.fillField ? "Fill field" : "Fill section",
+      action.value === ISO_ACTIONS.fillField ? "Заполнить поле" : "Заполнить секцию",
     ),
   );
 }

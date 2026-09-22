@@ -21,9 +21,9 @@ type IsoRendererPasses = {
 export const ISO_SCENE_LAYOUT_KEYS = [
   "field.placements",
   "grid.cellSize",
-  "grid.hideHiddenLines",
   "grid.levelHeight",
-  "grid.size",
+  "grid.cols",
+  "grid.rows",
   "library.files",
   "library.objects",
   "output.crop",
@@ -73,7 +73,6 @@ export const isoRendererPipelineRegistration =
         mustNotInvalidate: ["object-images"],
         targets: [
           "field.placements",
-          "grid.hideHiddenLines",
           "library.objects",
           "output.crop",
           "output.includeGrid",
@@ -106,7 +105,8 @@ export const isoRendererPipelineRegistration =
         targets: [
           "grid.cellSize",
           "grid.levelHeight",
-          "grid.size",
+          "grid.cols",
+          "grid.rows",
           "output.padding",
           "relief.max",
           "relief.step",

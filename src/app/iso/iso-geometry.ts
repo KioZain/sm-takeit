@@ -4,6 +4,9 @@ export const ISO_FOOTPRINTS: readonly IsoFootprint[] = ["1x1", "2x1", "1x2", "2x
 
 export type IsoPoint = Readonly<{ x: number; y: number }>;
 
+/** Field size in cells: `cols` run towards the bottom-right, `rows` towards the bottom-left. */
+export type IsoGridSize = Readonly<{ cols: number; rows: number }>;
+
 export type IsoSize = Readonly<{ height: number; width: number }>;
 
 export type IsoRect = Readonly<{
@@ -56,7 +59,7 @@ export type IsoColumnFace = Readonly<{ points: readonly IsoPoint[]; side: "left"
 export type IsoSceneInput = Readonly<{
   cellSize: number;
   crop: IsoCropMode;
-  gridSize: number;
+  gridSize: IsoGridSize;
   /**
    * Lowest and highest heights each column reaches over an animation loop. When
    * present, the frame covers the whole range so it stays still while playing.
@@ -150,22 +153,30 @@ export function unprojectIso(point: IsoPoint, cellSize: number): IsoPoint {
 
 export function getCellAtPoint(
   point: IsoPoint,
-  gridSize: number,
+  gridSize: IsoGridSize,
   cellSize: number,
 ): IsoCell | null {
   const grid = unprojectIso(point, cellSize);
   const col = Math.floor(grid.x);
   const row = Math.floor(grid.y);
-  return col >= 0 && row >= 0 && col < gridSize && row < gridSize
+  return col >= 0 && row >= 0 && col < gridSize.cols && row < gridSize.rows
     ? { col, row }
     : null;
 }
 
-export function getFieldBounds(gridSize: number, cellSize: number): IsoRect {
+/** All cells of the field in row-major order. */
+export function getGridCells(gridSize: IsoGridSize): IsoCell[] {
+  return Array.from({ length: gridSize.cols * gridSize.rows }, (_, index) => ({
+    col: index % gridSize.cols,
+    row: Math.floor(index / gridSize.cols),
+  }));
+}
+
+export function getFieldBounds(gridSize: IsoGridSize, cellSize: number): IsoRect {
   return {
-    height: (gridSize * cellSize) / 2,
-    width: gridSize * cellSize,
-    x: (-gridSize * cellSize) / 2,
+    height: ((gridSize.cols + gridSize.rows) * cellSize) / 4,
+    width: ((gridSize.cols + gridSize.rows) * cellSize) / 2,
+    x: (-gridSize.rows * cellSize) / 2,
     y: 0,
   };
 }
@@ -248,10 +259,10 @@ export function footprintFitsGrid(
   col: number,
   row: number,
   footprint: IsoFootprint,
-  gridSize: number,
+  gridSize: IsoGridSize,
 ): boolean {
   const { cols, rows } = getFootprintSpan(footprint);
-  return col >= 0 && row >= 0 && col + cols <= gridSize && row + rows <= gridSize;
+  return col >= 0 && row >= 0 && col + cols <= gridSize.cols && row + rows <= gridSize.rows;
 }
 
 export function createPlacementId(objectId: string, col: number, row: number): string {
@@ -265,7 +276,7 @@ export function createPlacementId(objectId: string, col: number, row: number): s
 export function filterRenderablePlacements(
   placements: readonly IsoPlacement[],
   objectIds: ReadonlySet<string>,
-  gridSize: number,
+  gridSize: IsoGridSize,
 ): IsoPlacement[] {
   type Accepted = Readonly<{ occupied: ReadonlySet<string>; result: readonly IsoPlacement[] }>;
   const initial: Accepted = { occupied: new Set<string>(), result: [] };
@@ -297,7 +308,7 @@ export function checkPlacement(
   col: number,
   row: number,
   footprint: IsoFootprint,
-  gridSize: number,
+  gridSize: IsoGridSize,
   heights: IsoHeightMap = new Map(),
 ): IsoPlacementCheck {
   if (!footprintFitsGrid(col, row, footprint, gridSize)) {
@@ -324,7 +335,7 @@ export function placeObject(
   col: number,
   row: number,
   footprint: IsoFootprint,
-  gridSize: number,
+  gridSize: IsoGridSize,
   heights?: IsoHeightMap,
 ): IsoPlacement[] | null {
   if (!checkPlacement(placements, col, row, footprint, gridSize, heights).ok) return null;
@@ -343,12 +354,12 @@ export function normalizeCellRect(from: IsoCell, to: IsoCell): IsoCellRect {
   };
 }
 
-export function clampCellRect(rect: IsoCellRect, gridSize: number): IsoCellRect | null {
+export function clampCellRect(rect: IsoCellRect, gridSize: IsoGridSize): IsoCellRect | null {
   const clamped = {
     col0: Math.max(0, rect.col0),
-    col1: Math.min(gridSize - 1, rect.col1),
+    col1: Math.min(gridSize.cols - 1, rect.col1),
     row0: Math.max(0, rect.row0),
-    row1: Math.min(gridSize - 1, rect.row1),
+    row1: Math.min(gridSize.rows - 1, rect.row1),
   };
   return clamped.col0 <= clamped.col1 && clamped.row0 <= clamped.row1 ? clamped : null;
 }
@@ -367,7 +378,7 @@ export function fillCellRect(
   rect: IsoCellRect,
   objectId: string,
   footprint: IsoFootprint,
-  gridSize: number,
+  gridSize: IsoGridSize,
   heights?: IsoHeightMap,
 ): IsoPlacement[] {
   const bounded = clampCellRect(rect, gridSize);

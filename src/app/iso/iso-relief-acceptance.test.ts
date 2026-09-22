@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 
+import { buildIsoSceneModel } from "./iso-scene-model";
 import { getIsoCellCommand, moveIsoHeightDrag, startIsoHeightDrag } from "./iso-field";
 import {
   buildIsoSceneModelFromState,
@@ -21,9 +22,11 @@ import {
   reliefLevels,
   runAction,
   withPlacements,
+  gridOf,
 } from "./iso-test-fixtures";
 
 const corner = { [ISO_TARGETS.reliefPattern]: "corner-diagonal" };
+const corner_ = (value: string) => ({ [ISO_TARGETS.reliefCorner]: value, [ISO_TARGETS.reliefPattern]: "corner-rings" });
 
 describe("sushi set relief acceptance", () => {
   it("height tool drags columns with magnetic snapping", () => {
@@ -100,8 +103,29 @@ describe("sushi set relief acceptance", () => {
     const raised = buildIsoSceneModelFromState(createState(corner));
     expect(raised.field.y).toBeLessThan(flat.field.y);
     // A 2×1 piece straddling a level change stands on columns levelled to its top.
-    const levelled = withPlacements([at("maki", 1, 0, "2x1")], { ...corner, [ISO_TARGETS.gridSize]: 3, [ISO_TARGETS.reliefStep]: 1 });
+    const levelled = withPlacements([at("maki", 1, 0, "2x1")], { ...corner, ...gridOf(3), [ISO_TARGETS.reliefStep]: 1 });
     expect(heightMatrix(levelled)).toEqual([[4, 3, 3], [3, 2, 1], [2, 1, 0]]);
+  });
+
+  it("relief patterns follow the real corners of a rectangular field", () => {
+    const rings = (corner: string) =>
+      reliefLevels({ ...corner_(corner), [ISO_TARGETS.reliefStep]: 1, [ISO_TARGETS.reliefMax]: 4 }, 5, 3);
+    // Width 5, length 3: the right corner is (4, 0), the bottom corner (4, 2).
+    expect(rings("right")[0]![4]).toBe(4);
+    expect(rings("bottom")[2]![4]).toBe(4);
+    expect(rings("left")[2]![0]).toBe(4);
+    const edge = reliefLevels(
+      { [ISO_TARGETS.reliefEdge]: "bottom-right", [ISO_TARGETS.reliefPattern]: "edge", [ISO_TARGETS.reliefStep]: 1 },
+      5,
+      3,
+    );
+    expect(edge.map((row) => row[4])).toEqual([4, 4, 4]);
+    // The pyramid becomes a ridge along the longer side.
+    const pyramid = reliefLevels({ [ISO_TARGETS.reliefPattern]: "pyramid", [ISO_TARGETS.reliefStep]: 1 }, 5, 3);
+    expect(pyramid[1]).toEqual([3, 4, 4, 4, 3]);
+    expect(pyramid[0]).toEqual([3, 3, 3, 3, 3]);
+    // A single-cell field still works.
+    expect(reliefLevels({ ...corner_("top") }, 1, 1)).toEqual([[4]]);
   });
 
   it("relief peak corner moves the highest column", () => {
@@ -147,7 +171,7 @@ describe("sushi set relief acceptance", () => {
   it("reset edits clears hand edits in the field or a section", () => {
     const edited = createState({
       ...corner,
-      [ISO_TARGETS.gridSize]: 3,
+      ...gridOf(3),
       [ISO_TARGETS.reliefEdits]: editsValue([[1, 1, 1], [1, 1, 1]]),
       [ISO_TARGETS.reliefStep]: 1,
       [ISO_TARGETS.selection]: { col0: 0, col1: 2, row0: 0, row1: 0 },
@@ -160,11 +184,13 @@ describe("sushi set relief acceptance", () => {
     expect(heightMatrix(reset)).toEqual([[4, 3, 2], [3, 2, 1], [2, 1, 0]]);
   });
 
-  it("hide overlaps clips guide lines behind raised columns", () => {
+  it("solid column mode clips guide lines behind raised columns", () => {
     // A tall column at (1,1) stands in front of the cell (0,0) and hides its top edges.
-    const values = { [ISO_TARGETS.gridSize]: 3, [ISO_TARGETS.reliefEdits]: editsValue([[0, 0, 0], [0, 2, 0]]) };
-    const shown = buildIsoSceneModelFromState(createState(values));
-    const hidden = buildIsoSceneModelFromState(createState({ ...values, [ISO_TARGETS.hideHiddenLines]: true }));
+    const values = { ...gridOf(3), [ISO_TARGETS.reliefEdits]: editsValue([[0, 0, 0], [0, 2, 0]]) };
+    // The mode is fixed under the hood (ISO_SOLID_COLUMNS), so it is exercised through the scene input.
+    const input = readIsoSceneInput(createState(values));
+    const shown = buildIsoSceneModel({ ...input, hideHiddenLines: false });
+    const hidden = buildIsoSceneModel({ ...input, hideHiddenLines: true });
     const length = (model: typeof shown) =>
       model.guide.reduce((sum, segment) => sum + Math.hypot(segment.to.x - segment.from.x, segment.to.y - segment.from.y), 0);
     expect(length(hidden)).toBeLessThan(length(shown) - 100);

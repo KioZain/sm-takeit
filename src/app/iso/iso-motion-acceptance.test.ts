@@ -11,10 +11,11 @@ import {
   heightMatrix,
   runAction,
   withPlacements,
+  gridOf,
 } from "./iso-test-fixtures";
 
 const wave = {
-  [ISO_TARGETS.gridSize]: 6,
+  ...gridOf(6),
   [ISO_TARGETS.reliefPattern]: "corner-diagonal",
   [ISO_TARGETS.reliefWave]: true,
 };
@@ -46,11 +47,12 @@ describe("sushi set motion acceptance", () => {
     expect(dispatched).toEqual([
       {
         history: "record",
-        label: "Apply preset 1",
+        label: "Пресет 1",
         type: "controls.apply",
         values: {
+          "grid.cols": 4,
           "grid.levelHeight": 20,
-          "grid.size": 4,
+          "grid.rows": 4,
           "relief.corner": "top",
           "relief.max": 2,
           "relief.pattern": "corner-rings",
@@ -136,6 +138,15 @@ describe("sushi set motion acceptance", () => {
       const values = { ...wave, [ISO_TARGETS.reliefWaveEasing]: easing };
       expect(edgeRow(values, ISO_WAVE_LOOP_SECONDS)).toEqual(edgeRow(values, 0));
     }
+  });
+
+  it("relief wave loops seamlessly on a rectangular field", () => {
+    const rect = { ...wave, ...gridOf(8, 2) };
+    const rows = (seconds: number) => heightMatrix(at_time(rect, seconds));
+    expect(rows(0)).toHaveLength(2);
+    expect(rows(0)[0]).toHaveLength(8);
+    expect(rows(ISO_WAVE_LOOP_SECONDS)).toEqual(rows(0));
+    expect(rows(1)).not.toEqual(rows(0));
   });
 
   it("relief wave loops seamlessly on the timeline", () => {

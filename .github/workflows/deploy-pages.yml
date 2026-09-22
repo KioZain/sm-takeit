@@ -31,10 +31,10 @@ jobs:
       - name: Build
         run: npx vite build --base="/${{ github.event.repository.name }}/"
 
-      # index.html is framework-owned, so the favicon link is added to the built page only.
-      - name: Link favicon and disable Jekyll
+      # index.html is framework-owned, so the published page is cleaned after the build.
+      - name: Clean the published page
         run: |
-          sed -i "s#</title>#</title>\n    <link rel=\"icon\" href=\"/${{ github.event.repository.name }}/favicon.ico\" />#" dist/index.html
+          node .github/scripts/clean-published-page.mjs dist/index.html "/${{ github.event.repository.name }}/" "Тэйкидо"
           touch dist/.nojekyll
 
       - name: Publish to gh-pages

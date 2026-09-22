@@ -11,31 +11,55 @@ function gridGuide(page: Page): Locator {
   return page.locator(`${ISO_PRODUCT_SVG} [data-iso-layer="grid"] [data-iso-grid-segments]`);
 }
 
-// A flat N×N field has 2·N·(N + 1) guide edges.
-const segmentsFor = (size: number) => String(2 * size * (size + 1));
+// A flat cols×rows field has 2·cols·rows + cols + rows guide edges.
+const segmentsFor = (cols: number, rows = cols) => String(2 * cols * rows + cols + rows);
 
-test("browser acceptance: grid size slider rebuilds the field", async ({ page }) => {
+test("browser acceptance: grid width slider rebuilds the field", async ({ page }) => {
   await openIsoApp(page);
   const session = await createToolcraftBrowserProofSession(page);
   await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(6));
-  await expectToolcraftDiscreteSliderMarkers(page, "grid.size");
+  await expectToolcraftDiscreteSliderMarkers(page, "grid.cols");
 
   // Drag to the maximum and keep holding: the field is rebuilt mid-drag.
   await expectToolcraftProductObservableToChange(
     session,
-    session.controlAction("grid.size", async (control, currentPage) => {
+    session.controlAction("grid.cols", async (control, currentPage) => {
       await holdIsoSliderAt(control, currentPage, 1);
     }),
-    { requirementId: "grid.size", selector: ISO_PRODUCT_SVG },
+    { requirementId: "grid.cols", selector: ISO_PRODUCT_SVG },
   );
-  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(8));
+  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(8, 6));
   await page.mouse.up();
 
-  const control = page.locator('[data-toolcraft-control-target="grid.size"]');
+  const control = page.locator('[data-toolcraft-control-target="grid.cols"]');
   await holdIsoSliderAt(control, page, 0);
   await page.mouse.up();
-  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(2));
-  await expect(control).toContainText("2 cells");
+  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(1, 6));
+  await expect(control).toContainText("1 кл.");
+});
+
+test("browser acceptance: grid length slider rebuilds the field", async ({ page }) => {
+  await openIsoApp(page);
+  const session = await createToolcraftBrowserProofSession(page);
+  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(6));
+  await expectToolcraftDiscreteSliderMarkers(page, "grid.rows");
+
+  // Drag to the maximum and keep holding: the field is rebuilt mid-drag.
+  await expectToolcraftProductObservableToChange(
+    session,
+    session.controlAction("grid.rows", async (control, currentPage) => {
+      await holdIsoSliderAt(control, currentPage, 1);
+    }),
+    { requirementId: "grid.rows", selector: ISO_PRODUCT_SVG },
+  );
+  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(6, 8));
+  await page.mouse.up();
+
+  const control = page.locator('[data-toolcraft-control-target="grid.rows"]');
+  await holdIsoSliderAt(control, page, 0);
+  await page.mouse.up();
+  await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(6, 1));
+  await expect(control).toContainText("1 кл.");
 });
 
 test("browser acceptance: cell size resizes the field live", async ({ page }) => {
@@ -64,7 +88,7 @@ test("browser acceptance: grid visibility hides and shows the dashed field", asy
   await expectToolcraftProductObservableToChange(
     session,
     session.controlAction("grid.visible", async (control) => {
-      await control.getByRole("switch", { name: "Visible" }).click();
+      await control.getByRole("switch", { name: "Показывать сетку" }).click();
     }),
     { requirementId: "grid.visible", selector: ISO_PRODUCT_SVG },
   );
@@ -72,7 +96,7 @@ test("browser acceptance: grid visibility hides and shows the dashed field", asy
 
   await page
     .locator('[data-toolcraft-control-target="grid.visible"]')
-    .getByRole("switch", { name: "Visible" })
+    .getByRole("switch", { name: "Показывать сетку" })
     .click();
   await expect(gridGuide(page)).toHaveAttribute("data-iso-grid-segments", segmentsFor(6));
 });

@@ -8,6 +8,7 @@ import {
   type IsoCellRect,
   type IsoCropMode,
   type IsoFootprint,
+  type IsoGridSize,
   type IsoHeightMap,
   type IsoObjectRecord,
   type IsoPlacement,
@@ -39,9 +40,9 @@ export const ISO_TARGETS = {
   cellSize: "grid.cellSize",
   commands: "field.commands",
   crop: "output.crop",
-  gridSize: "grid.size",
+  gridCols: "grid.cols",
+  gridRows: "grid.rows",
   gridVisible: "grid.visible",
-  hideHiddenLines: "grid.hideHiddenLines",
   reliefEdits: "relief.edits",
   includeBackground: "export.includeBackground",
   includeGrid: "output.includeGrid",
@@ -88,9 +89,9 @@ export const ISO_DEFAULTS = {
   background: "#FFFFFF",
   cellSize: 72,
   crop: "field" as IsoCropMode,
-  gridSize: 6,
+  gridCols: 6,
+  gridRows: 6,
   gridVisible: true,
-  hideHiddenLines: false,
   includeBackground: false,
   includeGrid: false,
   /** One column level as a percentage of the cell width. */
@@ -114,7 +115,7 @@ export const ISO_DEFAULT_ANCHOR: IsoPoint = Object.freeze({ x: 0.5, y: 0.9 });
 export const ISO_LIBRARY_MAX_OBJECTS = 24;
 
 /** Cells per side of the square field. */
-export const ISO_GRID_SIZE_RANGE = { max: 8, min: 2 } as const;
+export const ISO_GRID_SIZE_RANGE = { max: 8, min: 1 } as const;
 
 export const ISO_FIELD_HANDLE_TEST_ID = "iso-field";
 
@@ -169,14 +170,31 @@ export function isIsoFootprint(value: unknown): value is IsoFootprint {
   return ISO_FOOTPRINTS.includes(value as IsoFootprint);
 }
 
-export function getIsoGridSize(values: IsoStateSource["values"]): number {
-  const size = Math.round(finiteNumber(values[ISO_TARGETS.gridSize], ISO_DEFAULTS.gridSize));
-  return clamp(size, ISO_GRID_SIZE_RANGE.min, ISO_GRID_SIZE_RANGE.max);
+function readGridCount(value: unknown, fallback: number): number {
+  return clamp(Math.round(finiteNumber(value, fallback)), ISO_GRID_SIZE_RANGE.min, ISO_GRID_SIZE_RANGE.max);
 }
+
+/** Field size in cells along each axis. */
+export function getIsoGridSize(values: IsoStateSource["values"]): IsoGridSize {
+  return {
+    cols: readGridCount(values[ISO_TARGETS.gridCols], ISO_DEFAULTS.gridCols),
+    rows: readGridCount(values[ISO_TARGETS.gridRows], ISO_DEFAULTS.gridRows),
+  };
+}
+
+/**
+ * Field modes offered in the panel. Select (sections) and Height (hand-raised
+ * columns) stay implemented but are hidden from users; add them back here and
+ * to the Mode control options to expose them again.
+ */
+export const ISO_VISIBLE_TOOLS: readonly IsoTool[] = ["place", "erase"];
+
+/** Solid (hidden-line) column guide, fixed under the hood instead of a panel switch. */
+export const ISO_SOLID_COLUMNS = true;
 
 export function readIsoTool(values: IsoStateSource["values"]): IsoTool {
   const tool = values[ISO_TARGETS.tool];
-  return tool === "select" || tool === "erase" || tool === "height" ? tool : "place";
+  return ISO_VISIBLE_TOOLS.includes(tool as IsoTool) ? (tool as IsoTool) : "place";
 }
 
 function readCropMode(value: unknown): IsoCropMode {
@@ -465,7 +483,7 @@ export function readIsoSceneInput(state: IsoStateSource): IsoSceneInput {
     crop: readCropMode(values[ISO_TARGETS.crop]),
     gridSize: getIsoGridSize(values),
     ...pickHeights(getIsoReliefLayers(state)),
-    hideHiddenLines: values[ISO_TARGETS.hideHiddenLines] === true,
+    hideHiddenLines: ISO_SOLID_COLUMNS,
     includeGrid: values[ISO_TARGETS.includeGrid] === true,
     levelHeight: (cellSize * levelPercent) / 100,
     objects,

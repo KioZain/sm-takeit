@@ -142,7 +142,7 @@ function AnchorPicker({
 
   return (
     <Button
-      aria-label={`Anchor point of ${name}: ${Math.round(anchor.x * 100)}% across, ${Math.round(anchor.y * 100)}% down`}
+      aria-label={`Точка опоры «${name}»: ${Math.round(anchor.x * 100)}% по ширине, ${Math.round(anchor.y * 100)}% по высоте`}
       className={styles.anchorButton}
       data-iso-anchor-picker=""
       onKeyDown={nudge}
@@ -238,7 +238,7 @@ export function IsoObjectLibraryControl({
   return (
     <div className={styles.library} data-iso-control={controlId}>
       <ToggleGroup
-        aria-label="Active object"
+        aria-label="Активный объект"
         className={styles.objectGrid}
         onValueChange={(groupValue: unknown[]) => {
           const nextId = groupValue.find((item): item is string => typeof item === "string");
@@ -274,7 +274,7 @@ export function IsoObjectLibraryControl({
             url={urls.get(active.id)}
           />
           <div className={styles.field}>
-            <Label htmlFor={`${baseId}-name`}>Name</Label>
+            <Label htmlFor={`${baseId}-name`}>Имя</Label>
             <CommitInput
               id={`${baseId}-name`}
               onCommit={(name) => {
@@ -285,7 +285,7 @@ export function IsoObjectLibraryControl({
             />
           </div>
           <div className={styles.field}>
-            <Label id={`${baseId}-footprint`}>Footprint</Label>
+            <Label id={`${baseId}-footprint`}>Площадь</Label>
             <ToggleGroup
               aria-labelledby={`${baseId}-footprint`}
               className={styles.footprints}
@@ -305,7 +305,7 @@ export function IsoObjectLibraryControl({
             </ToggleGroup>
           </div>
           <div className={styles.field}>
-            <Label htmlFor={`${baseId}-scale`}>Scale</Label>
+            <Label htmlFor={`${baseId}-scale`}>Масштаб</Label>
             <CommitInput
               id={`${baseId}-scale`}
               inputMode="decimal"

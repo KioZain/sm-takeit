@@ -32,6 +32,7 @@ import {
   runAction,
   size,
   withPlacements,
+  gridOf,
 } from "./iso-test-fixtures";
 
 function sectionControls(id: string) {
@@ -62,25 +63,38 @@ describe("sushi set acceptance", () => {
     expect(setupTargets).toEqual(expect.arrayContaining([ISO_TARGETS.includeBackground, ISO_TARGETS.background]));
   });
 
-  it("grid size rebuilds the rhombus field from 2 to 8 cells", () => {
-    const size = (value: unknown) =>
-      buildIsoSceneModelFromState(createState({ [ISO_TARGETS.gridSize]: value })).field.width;
-    expect(size(2)).toBe(200);
-    expect(size(8)).toBe(800);
-    expect(size(1)).toBe(200);
-    expect(size(12)).toBe(800);
-    expect(size(4.6)).toBe(500);
-    expect(buildIsoSceneModelFromState(createState({ [ISO_TARGETS.gridSize]: 8 })).guide).toHaveLength(144);
+  it("grid width sets the cell count along the right side", () => {
+    const model = (cols: unknown, rows: unknown) =>
+      buildIsoSceneModelFromState(
+        createState({ [ISO_TARGETS.gridCols]: cols, [ISO_TARGETS.gridRows]: rows }),
+      );
+    // Width 2, length 3: the field spans (2 + 3) half-cells across and down.
+    expect(model(2, 3).field).toEqual({ height: 125, width: 250, x: -150, y: 0 });
+    expect(model(5, 6).field).toEqual({ height: 275, width: 550, x: -300, y: 0 });
+    // Out-of-range and fractional values clamp to 1…8 whole cells.
+    expect(model(0, 1).field.width).toBe(100);
+    expect(model(12, 8).field.width).toBe(800);
+    expect(model(4.6, 1).field.width).toBe(300);
+    // A flat w×l field has 2·w·l + w + l guide edges.
+    expect(model(2, 3).guide).toHaveLength(2 * 6 + 5);
+    expect(model(8, 8).guide).toHaveLength(144);
+  });
+
+  it("grid length sets the cell count along the left side", () => {
+    // Placing is bounded by each axis separately.
+    const wide = createState({ ...gridOf(5, 2), [ISO_TARGETS.libraryObjects]: { activeId: "maki", items: { maki: record("maki") } } });
+    expect(placedIds(getIsoCellCommand(fieldContext(wide), { col: 4, row: 1 }, null))).toEqual(["maki@4,1"]);
+    expect(getIsoCellCommand(fieldContext(wide), { col: 1, row: 2 }, null)).toBeNull();
 
     // Shrinking hides pieces outside the field; edits keep them for regrowth.
     const pieces = [at("maki", 0, 0), at("nigiri", 5, 5), at("maki", 3, 0, "2x2")];
-    const shrunk = withPlacements(pieces, { [ISO_TARGETS.gridSize]: 4 });
+    const shrunk = withPlacements(pieces, gridOf(4, 2));
     expect(getIsoActivePlacements(shrunk).map((item) => item.id)).toEqual(["maki@0,0"]);
     const placed = getIsoCellCommand(fieldContext(shrunk), { col: 1, row: 1 }, null);
     expect(placedIds(placed)).toEqual(["maki@0,0", "maki@1,1", "nigiri@5,5", "maki@3,0"]);
     const regrown = withPlacements(
       readIsoPlacements({ [ISO_TARGETS.placements]: placed?.type === "controls.setValue" ? placed.value : null }),
-      { [ISO_TARGETS.gridSize]: 6 },
+      gridOf(6),
     );
     expect(getIsoActivePlacements(regrown)).toHaveLength(4);
   });

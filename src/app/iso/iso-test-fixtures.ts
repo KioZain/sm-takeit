@@ -60,7 +60,8 @@ export function createState(
     values: {
       [ISO_TARGETS.cellSize]: 100,
       [ISO_TARGETS.crop]: ISO_DEFAULTS.crop,
-      [ISO_TARGETS.gridSize]: ISO_DEFAULTS.gridSize,
+      [ISO_TARGETS.gridCols]: ISO_DEFAULTS.gridCols,
+      [ISO_TARGETS.gridRows]: ISO_DEFAULTS.gridRows,
       [ISO_TARGETS.gridVisible]: true,
       [ISO_TARGETS.includeBackground]: false,
       [ISO_TARGETS.includeGrid]: false,
@@ -127,14 +128,19 @@ export function applyCommand<State extends IsoStateSource>(
 export function heightMatrix(state: IsoStateSource): number[][] {
   const { heights } = getIsoReliefLayers(state);
   const gridSize = getIsoGridSize(state.values);
-  return Array.from({ length: gridSize }, (_, row) =>
-    Array.from({ length: gridSize }, (_, col) => heights.get(`${col},${row}`) ?? 0),
+  return Array.from({ length: gridSize.rows }, (_, row) =>
+    Array.from({ length: gridSize.cols }, (_, col) => heights.get(`${col},${row}`) ?? 0),
   );
 }
 
 /** Final heights of a pattern on an otherwise empty field. */
-export function reliefLevels(values: Record<string, unknown>, gridSize = 5): number[][] {
-  return heightMatrix(createState({ [ISO_TARGETS.gridSize]: gridSize, ...values }));
+export function reliefLevels(values: Record<string, unknown>, cols = 5, rows = cols): number[][] {
+  return heightMatrix(createState({ ...gridOf(cols, rows), ...values }));
+}
+
+/** Grid size values for `cols` × `rows` cells (square by default). */
+export function gridOf(cols: number, rows = cols): Record<string, number> {
+  return { [ISO_TARGETS.gridCols]: cols, [ISO_TARGETS.gridRows]: rows };
 }
 
 export function runAction(value: string, state: ReturnType<typeof createState>) {

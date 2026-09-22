@@ -14,11 +14,11 @@
       },
       "canvas.size.width": 480,
       "canvas.size.height": 264,
-      "grid.size": 6,
+      "grid.cols": 6,
+      "grid.rows": 6,
       "grid.cellSize": 72,
       "grid.levelHeight": 50,
       "grid.visible": true,
-      "grid.hideHiddenLines": false,
       "library.objects": {
         "activeId": null,
         "items": {}

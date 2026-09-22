@@ -1,11 +1,13 @@
 import {
   getCellHeight,
+  getGridCells,
   getFootprintSpan,
   isSameHeight,
   projectIso,
   type IsoCell,
   type IsoColumnFace,
   type IsoFootprint,
+  type IsoGridSize,
   type IsoHeightMap,
   type IsoPoint,
   type IsoSegment,
@@ -15,7 +17,7 @@ import { clipPolygon, clipSegment } from "./iso-occlusion";
 /** Field geometry needed to place raised columns on screen. */
 export type IsoColumnSpace = Readonly<{
   cellSize: number;
-  gridSize: number;
+  gridSize: IsoGridSize;
   heights: IsoHeightMap;
   /** Screen height of one level in px. */
   levelHeight: number;
@@ -28,7 +30,7 @@ function lifted(col: number, row: number, levels: number, space: IsoColumnSpace)
 
 /** Height of a cell, or 0 outside the grid (the ground). */
 function heightOrGround(space: IsoColumnSpace, col: number, row: number): number {
-  return col >= 0 && row >= 0 && col < space.gridSize && row < space.gridSize
+  return col >= 0 && row >= 0 && col < space.gridSize.cols && row < space.gridSize.rows
     ? getCellHeight(space.heights, col, row)
     : 0;
 }
@@ -76,11 +78,8 @@ function polygonContains(polygon: readonly IsoPoint[], point: IsoPoint): boolean
 }
 
 /** Cells ordered nearest first, so raised front columns win hit tests. */
-function cellsFrontToBack(gridSize: number): IsoCell[] {
-  return Array.from({ length: gridSize * gridSize }, (_, index) => ({
-    col: index % gridSize,
-    row: Math.floor(index / gridSize),
-  })).sort((left, right) => right.col + right.row - (left.col + left.row));
+function cellsFrontToBack(gridSize: IsoGridSize): IsoCell[] {
+  return getGridCells(gridSize).sort((left, right) => right.col + right.row - (left.col + left.row));
 }
 
 /** The visible column under a field-local point, or null. */
@@ -98,8 +97,8 @@ export function getNearestColumn(point: IsoPoint, space: IsoColumnSpace): IsoCel
   if (hit) return hit;
   const x = point.x / space.cellSize;
   const y = (2 * point.y) / space.cellSize;
-  const clamp = (value: number) => Math.min(space.gridSize - 1, Math.max(0, Math.floor(value)));
-  return { col: clamp(x + y), row: clamp(y - x) };
+  const clamp = (value: number, count: number) => Math.min(count - 1, Math.max(0, Math.floor(value)));
+  return { col: clamp(x + y, space.gridSize.cols), row: clamp(y - x, space.gridSize.rows) };
 }
 
 /** Vertical edge at grid vertex (col, row); `owner` is the column it belongs to. */
@@ -152,8 +151,8 @@ function getCellGuide(space: IsoColumnSpace, cell: IsoCell): CellGuide {
   const top = getCellHeight(space.heights, col, row);
   const nearCol = heightOrGround(space, col + 1, row);
   const nearRow = heightOrGround(space, col, row + 1);
-  const colIsBoundary = col + 1 >= space.gridSize;
-  const rowIsBoundary = row + 1 >= space.gridSize;
+  const colIsBoundary = col + 1 >= space.gridSize.cols;
+  const rowIsBoundary = row + 1 >= space.gridSize.rows;
   const colDiffers = !isSameHeight(nearCol, top);
   const rowDiffers = !isSameHeight(nearRow, top);
   const colFace = colDiffers && nearCol < top;
@@ -198,9 +197,7 @@ function getCellGuide(space: IsoColumnSpace, cell: IsoCell): CellGuide {
  * heights at 0 this is exactly the flat rhombus grid.
  */
 function getCellGuides(space: IsoColumnSpace): CellGuide[] {
-  return Array.from({ length: space.gridSize * space.gridSize }, (_, index) =>
-    getCellGuide(space, { col: index % space.gridSize, row: Math.floor(index / space.gridSize) }),
-  );
+  return getGridCells(space.gridSize).map((cell) => getCellGuide(space, cell));
 }
 
 export type IsoColumnGuide = Readonly<{ faces: IsoColumnFace[]; segments: IsoSegment[] }>;
@@ -211,10 +208,7 @@ export type IsoColumnGuide = Readonly<{ faces: IsoColumnFace[]; segments: IsoSeg
  */
 function getOccluders(space: IsoColumnSpace, cell: IsoCell): IsoPoint[][] {
   const diagonal = cell.col - cell.row;
-  return Array.from({ length: space.gridSize * space.gridSize }, (_, index) => ({
-    col: index % space.gridSize,
-    row: Math.floor(index / space.gridSize),
-  }))
+  return getGridCells(space.gridSize)
     .filter(
       (other) =>
         isInFront(other, cell) &&

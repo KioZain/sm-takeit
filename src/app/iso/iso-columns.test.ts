@@ -9,8 +9,8 @@ import {
 } from "./iso-columns";
 import { checkPlacement, projectIso } from "./iso-geometry";
 
-function space(heights: Record<string, number>, gridSize = 3): IsoColumnSpace {
-  return { cellSize: 100, gridSize, heights: new Map(Object.entries(heights)), levelHeight: 50 };
+function space(heights: Record<string, number>, size = 3, rows = size): IsoColumnSpace {
+  return { cellSize: 100, gridSize: { cols: size, rows }, heights: new Map(Object.entries(heights)), levelHeight: 50 };
 }
 
 describe("iso columns", () => {
@@ -53,8 +53,8 @@ describe("iso columns", () => {
 
   it("forbids a multi-cell piece on uneven columns", () => {
     const heights = new Map([["0,0", 1]]);
-    expect(checkPlacement([], 0, 0, "2x1", 3, heights)).toEqual({ ok: false, reason: "uneven" });
-    expect(checkPlacement([], 0, 0, "1x1", 3, heights)).toEqual({ ok: true });
-    expect(checkPlacement([], 1, 0, "2x2", 3, heights)).toEqual({ ok: true });
+    expect(checkPlacement([], 0, 0, "2x1", { cols: 3, rows: 3 }, heights)).toEqual({ ok: false, reason: "uneven" });
+    expect(checkPlacement([], 0, 0, "1x1", { cols: 3, rows: 3 }, heights)).toEqual({ ok: true });
+    expect(checkPlacement([], 1, 0, "2x2", { cols: 3, rows: 3 }, heights)).toEqual({ ok: true });
   });
 });

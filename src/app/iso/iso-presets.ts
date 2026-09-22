@@ -17,7 +17,8 @@ export const ISO_PRESETS: readonly IsoPreset[] = [
   {
     label: "1",
     values: {
-      [ISO_TARGETS.gridSize]: 4,
+      [ISO_TARGETS.gridCols]: 4,
+      [ISO_TARGETS.gridRows]: 4,
       [ISO_TARGETS.levelHeight]: 20,
       [ISO_TARGETS.reliefCorner]: "top",
       [ISO_TARGETS.reliefMax]: 2,
@@ -50,7 +51,7 @@ export function getIsoPresetCommand(actionValue: string): ToolcraftCommand | nul
   if (!preset) return null;
   return {
     history: "record",
-    label: `Apply preset ${preset.label}`,
+    label: `Пресет ${preset.label}`,
     type: "controls.apply",
     values: { ...preset.values },
   };

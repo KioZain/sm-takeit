@@ -9,7 +9,7 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
     groupingReason: "Numbered buttons apply complete grid and relief setups in one step.",
     id: "presets",
     targets: [ISO_TARGETS.presets],
-    title: "Presets",
+    title: "Пресеты",
   },
   {
     entity: "Output background",
@@ -32,25 +32,25 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
     entityId: "isometric-grid",
     finiteSelectors: [
       {
-        reason: "Size changes only the field's cell count per side.",
+        reason: "Width changes only the field's cell count along its right side.",
         role: "parameter",
-        target: ISO_TARGETS.gridSize,
+        target: ISO_TARGETS.gridCols,
+      },
+      {
+        reason: "Length changes only the field's cell count along its left side.",
+        role: "parameter",
+        target: ISO_TARGETS.gridRows,
       },
       {
         reason: "Visibility changes only whether the dashed field is drawn.",
         role: "parameter",
         target: ISO_TARGETS.gridVisible,
       },
-      {
-        reason: "Solid changes only which guide lines and fills stay visible.",
-        role: "parameter",
-        target: ISO_TARGETS.hideHiddenLines,
-      },
     ],
-    groupingReason: "Size, cell size, level height, and visibility together define the rhombus field and its columns.",
+    groupingReason: "Width, length, cell size, level height, and visibility together define the rhombus field and its columns.",
     id: "grid",
-    targets: [ISO_TARGETS.gridSize, ISO_TARGETS.cellSize, ISO_TARGETS.levelHeight, ISO_TARGETS.gridVisible, ISO_TARGETS.hideHiddenLines],
-    title: "Grid",
+    targets: [ISO_TARGETS.gridCols, ISO_TARGETS.gridRows, ISO_TARGETS.cellSize, ISO_TARGETS.levelHeight, ISO_TARGETS.gridVisible],
+    title: "Сетка",
   },
   {
     entity: "Object library",
@@ -61,7 +61,7 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
     splitReason:
       "Uploading, reordering, and removing source PNGs is a separate task from configuring objects and resets only the uploads.",
     targets: [ISO_TARGETS.libraryFiles],
-    title: "Images",
+    title: "Загрузка",
     workflowStage: "upload",
   },
   {
@@ -73,7 +73,7 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
     splitReason:
       "Choosing the active object and editing its anchor, footprint, and scale is a distinct task whose reset keeps the uploads.",
     targets: [ISO_TARGETS.libraryObjects],
-    title: "Objects",
+    title: "Изображения",
     workflowStage: "configure",
   },
   {
@@ -89,7 +89,7 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
     groupingReason: "Tools, fill commands, and the composition summary all edit or read the placed pieces.",
     id: "field",
     targets: [ISO_TARGETS.tool, ISO_TARGETS.commands, ISO_TARGETS.placements],
-    title: "Field",
+    title: "Поле",
   },
   {
     entity: "Field relief",
@@ -155,9 +155,8 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
       ISO_TARGETS.reliefWaveLength,
       ISO_TARGETS.reliefWaveDirection,
       ISO_TARGETS.reliefWaveEasing,
-      ISO_TARGETS.reliefCommands,
     ],
-    title: "Relief",
+    title: "Рельеф",
   },
   {
     entity: "Export framing",
@@ -183,7 +182,7 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
     groupingReason: "Crop, padding, roll visibility, and grid inclusion together decide what the exported frame shows.",
     id: "framing",
     targets: [ISO_TARGETS.crop, ISO_TARGETS.padding, ISO_TARGETS.showPieces, ISO_TARGETS.includeGrid],
-    title: "Framing",
+    title: "Кадрирование",
   },
   {
     entity: "Image delivery",

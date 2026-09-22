@@ -11,31 +11,6 @@ const specs = {
 export const appReliefAcceptance: readonly ToolcraftComponentAcceptance[] = [
   {
     automated: true,
-    automatedTestName: "height tool drags columns with magnetic snapping",
-    browser: {
-      budget: "standard",
-      file: specs.relief,
-      testName: "browser acceptance: height tool raises a column and snaps it to a neighbour",
-    },
-    canvasHandle: {
-      outputObservable:
-        "The dragged column and the piece on it rise during the drag and snap to a neighbour's height with a guide.",
-      testId: ISO_FIELD_HANDLE_TEST_ID,
-      writesTarget: canvasPlacementCommand,
-    },
-    componentType: "canvas-handle",
-    evidence: "rendered-pixels",
-    expectedObservable:
-      "Dragging a column up raises its dashed outline and the piece on it; near a neighbour's height it snaps and shows a guide.",
-    fixture: "field with one raised column and a placed piece",
-    id: "field.height",
-    interactionId: "field-height",
-    kind: "canvas-handle",
-    target: canvasPlacementCommand,
-    userAction: "Drag a column up with the Height tool until it meets the raised neighbour.",
-  },
-  {
-    automated: true,
     automatedTestName: "relief patterns raise columns live",
     browser: {
       budget: "standard",
@@ -132,25 +107,6 @@ export const appReliefAcceptance: readonly ToolcraftComponentAcceptance[] = [
     userAction: "Drag Falloff and watch the column outlines.",
   },
   {
-    actionCoverage: [ISO_RELIEF_ACTIONS.resetEdits],
-    automated: true,
-    automatedTestName: "reset edits clears hand edits in the field or a section",
-    browser: {
-      budget: "standard",
-      file: specs.relief,
-      testName: "browser acceptance: Reset edits returns columns to the pattern",
-    },
-    componentType: "actions",
-    evidence: "rendered-pixels",
-    expectedObservable: "Reset edits returns hand-raised columns to the pattern height, only inside the selection when one exists.",
-    fixture: "pattern with hand-raised columns and a selected section",
-    id: "relief.commands",
-    interactionId: "relief-commands",
-    kind: "control",
-    target: ISO_TARGETS.reliefCommands,
-    userAction: "Click Reset edits with and without a selection and compare the column outlines.",
-  },
-  {
     automated: true,
     automatedTestName: "level height scales raised columns live",
     browser: {
@@ -166,23 +122,5 @@ export const appReliefAcceptance: readonly ToolcraftComponentAcceptance[] = [
     kind: "control",
     target: ISO_TARGETS.levelHeight,
     userAction: "Drag the Level slider and watch the raised columns.",
-  },
-  {
-    automated: true,
-    automatedTestName: "hide overlaps clips guide lines behind raised columns",
-    browser: {
-      budget: "standard",
-      file: specs.grid,
-      testName: "browser acceptance: solid columns leave only outer outlines",
-    },
-    componentType: "switch",
-    evidence: "rendered-pixels",
-    expectedObservable:
-      "With Solid on, grid lines and side fills behind raised columns disappear and only outer outlines remain.",
-    fixture: "pyramid relief",
-    id: "grid.hideHiddenLines",
-    kind: "control",
-    target: ISO_TARGETS.hideHiddenLines,
-    userAction: "Toggle Solid and compare the dashed guide.",
   },
 ];

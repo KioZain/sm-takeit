@@ -25,6 +25,8 @@ const record: IsoObjectRecord = {
   size: { height: 300, width: 200 },
 };
 
+const SIX = { cols: 6, rows: 6 };
+
 function at(objectId: string, col: number, row: number, footprint: IsoPlacement["footprint"] = "1x1"): IsoPlacement {
   return { col, footprint, id: `${objectId}@${col},${row}`, objectId, row };
 }
@@ -33,7 +35,7 @@ function sceneInput(overrides: Partial<IsoSceneInput> = {}): IsoSceneInput {
   return {
     cellSize: 100,
     crop: "content",
-    gridSize: 6,
+    gridSize: SIX,
     includeGrid: false,
     objects: { roll: record },
     padding: 10,
@@ -54,23 +56,23 @@ describe("iso projection", () => {
   });
 
   it("hit-tests the cell under a point and rejects points outside the field", () => {
-    expect(getCellAtPoint(projectIso(3.5, 2.5, 72), 6, 72)).toEqual({ col: 3, row: 2 });
-    expect(getCellAtPoint(projectIso(6.5, 0.5, 72), 6, 72)).toBeNull();
+    expect(getCellAtPoint(projectIso(3.5, 2.5, 72), SIX, 72)).toEqual({ col: 3, row: 2 });
+    expect(getCellAtPoint(projectIso(6.5, 0.5, 72), SIX, 72)).toBeNull();
   });
 });
 
 describe("iso placement operations", () => {
   it("rejects footprints that leave the grid or overlap occupied cells", () => {
-    expect(checkPlacement([], 5, 5, "2x2", 6)).toEqual({ ok: false, reason: "outside" });
-    expect(checkPlacement([at("roll", 1, 1, "2x1")], 2, 1, "1x1", 6)).toEqual({
+    expect(checkPlacement([], 5, 5, "2x2", SIX)).toEqual({ ok: false, reason: "outside" });
+    expect(checkPlacement([at("roll", 1, 1, "2x1")], 2, 1, "1x1", SIX)).toEqual({
       ok: false,
       reason: "occupied",
     });
-    expect(placeObject([], "roll", 4, 5, "2x1", 6)).toHaveLength(1);
+    expect(placeObject([], "roll", 4, 5, "2x1", SIX)).toHaveLength(1);
   });
 
   it("tiles a section with the footprint and leaves the remainder empty", () => {
-    const filled = fillCellRect([], { col0: 0, col1: 2, row0: 0, row1: 1 }, "roll", "2x1", 6);
+    const filled = fillCellRect([], { col0: 0, col1: 2, row0: 0, row1: 1 }, "roll", "2x1", SIX);
     expect(filled.map((placement) => [placement.col, placement.row])).toEqual([
       [0, 0],
       [0, 1],
@@ -78,7 +80,7 @@ describe("iso placement operations", () => {
   });
 
   it("fills around existing objects without overlap", () => {
-    const filled = fillCellRect([at("maki", 1, 0)], { col0: 0, col1: 2, row0: 0, row1: 0 }, "roll", "1x1", 6);
+    const filled = fillCellRect([at("maki", 1, 0)], { col0: 0, col1: 2, row0: 0, row1: 0 }, "roll", "1x1", SIX);
     expect(filled.map((placement) => placement.id).sort()).toEqual(["maki@1,0", "roll@0,0", "roll@2,0"]);
   });
 
@@ -89,7 +91,7 @@ describe("iso placement operations", () => {
 
   it("ignores placements of removed objects, outside the grid, or overlapping", () => {
     const placements = [at("gone", 0, 0), at("roll", 5, 5, "2x1"), at("roll", 1, 1), at("roll", 1, 1)];
-    expect(filterRenderablePlacements(placements, new Set(["roll"]), 6)).toEqual([at("roll", 1, 1)]);
+    expect(filterRenderablePlacements(placements, new Set(["roll"]), SIX)).toEqual([at("roll", 1, 1)]);
   });
 });
 

@@ -1,5 +1,6 @@
 import {
   cellRectContains,
+  getGridCells,
   getCellHeight,
   getFootprintSpan,
   getPlacementCells,
@@ -7,9 +8,12 @@ import {
   isSameHeight,
   type IsoCell,
   type IsoCellRect,
+  type IsoGridSize,
   type IsoHeightMap,
   type IsoPlacement,
 } from "./iso-geometry";
+
+export { getGridCells };
 
 export const ISO_RELIEF_PATTERNS = [
   "flat",
@@ -65,27 +69,27 @@ export const ISO_MAX_COLUMN_LEVELS = 16;
 /** Pixels on screen within which a dragged column snaps to a matching height. */
 export const ISO_SNAP_DISTANCE_PX = 6;
 
-function cornerCell(corner: IsoReliefCorner, last: number): IsoCell {
+function cornerCell(corner: IsoReliefCorner, last: IsoCell): IsoCell {
   switch (corner) {
     case "right":
-      return { col: last, row: 0 };
+      return { col: last.col, row: 0 };
     case "bottom":
-      return { col: last, row: last };
+      return { col: last.col, row: last.row };
     case "left":
-      return { col: 0, row: last };
+      return { col: 0, row: last.row };
     default:
       return { col: 0, row: 0 };
   }
 }
 
-function edgeDistance(edge: IsoReliefEdge, cell: IsoCell, last: number): number {
+function edgeDistance(edge: IsoReliefEdge, cell: IsoCell, last: IsoCell): number {
   switch (edge) {
     case "top-right":
       return cell.row;
     case "bottom-right":
-      return last - cell.col;
+      return last.col - cell.col;
     case "bottom-left":
-      return last - cell.row;
+      return last.row - cell.row;
     default:
       return cell.col;
   }
@@ -97,8 +101,9 @@ type PatternGeometry =
   | Readonly<{ kind: "flat" }>;
 
 /** How far a cell is from the pattern's peak, or which alternate set it belongs to. */
-function getPatternGeometry(settings: IsoReliefSettings, cell: IsoCell, gridSize: number): PatternGeometry {
-  const last = gridSize - 1;
+function getPatternGeometry(settings: IsoReliefSettings, cell: IsoCell, gridSize: IsoGridSize): PatternGeometry {
+  // The far corner cell; on a rectangular field its col and row differ.
+  const last = { col: gridSize.cols - 1, row: gridSize.rows - 1 };
   switch (settings.pattern) {
     case "flat":
       return { kind: "flat" };
@@ -111,8 +116,9 @@ function getPatternGeometry(settings: IsoReliefSettings, cell: IsoCell, gridSize
     case "edge":
       return { distance: edgeDistance(settings.edge, cell, last), kind: "slope" };
     case "pyramid": {
-      const ring = Math.min(cell.col, cell.row, last - cell.col, last - cell.row);
-      return { distance: Math.floor(last / 2) - ring, kind: "slope" };
+      // Rings count in from the nearest field edge; the centre ring is the peak.
+      const ring = Math.min(cell.col, cell.row, last.col - cell.col, last.row - cell.row);
+      return { distance: Math.floor(Math.min(last.col, last.row) / 2) - ring, kind: "slope" };
     }
     case "corner-rings": {
       const peak = cornerCell(settings.corner, last);
@@ -170,7 +176,7 @@ function getWaveLevel(geometry: PatternGeometry, max: number, wave: IsoReliefWav
 }
 
 /** Pattern height of one cell in levels (whole levels unless a wave is running). */
-export function getReliefLevel(settings: IsoReliefSettings, cell: IsoCell, gridSize: number): number {
+export function getReliefLevel(settings: IsoReliefSettings, cell: IsoCell, gridSize: IsoGridSize): number {
   const max = Math.max(0, Math.round(settings.max));
   const geometry = getPatternGeometry(settings, cell, gridSize);
   if (settings.wave) return getWaveLevel(geometry, max, settings.wave);
@@ -182,14 +188,6 @@ export function getReliefLevel(settings: IsoReliefSettings, cell: IsoCell, gridS
     default:
       return Math.max(0, max - Math.floor(geometry.distance / Math.max(1, Math.round(settings.step))));
   }
-}
-
-/** All cells of a square grid in row-major order. */
-export function getGridCells(gridSize: number): IsoCell[] {
-  return Array.from({ length: gridSize * gridSize }, (_, index) => ({
-    col: index % gridSize,
-    row: Math.floor(index / gridSize),
-  }));
 }
 
 export function getRectCells(rect: IsoCellRect): IsoCell[] {
@@ -223,12 +221,12 @@ export function levelFootprints(
 }
 
 /** Every cell at one level, e.g. the trough or crest of a running wave. */
-export function getUniformHeights(level: number, gridSize: number): Map<string, number> {
+export function getUniformHeights(level: number, gridSize: IsoGridSize): Map<string, number> {
   return new Map(getGridCells(gridSize).map((cell): [string, number] => [heightKey(cell.col, cell.row), level]));
 }
 
 /** Live pattern levels for every cell of the field. */
-export function getPatternHeights(settings: IsoReliefSettings, gridSize: number): Map<string, number> {
+export function getPatternHeights(settings: IsoReliefSettings, gridSize: IsoGridSize): Map<string, number> {
   return new Map(
     getGridCells(gridSize).map((cell): [string, number] => [
       heightKey(cell.col, cell.row),
@@ -244,7 +242,7 @@ export function getPatternHeights(settings: IsoReliefSettings, gridSize: number)
 export function composeReliefHeights(
   pattern: IsoHeightMap,
   edits: IsoHeightMap,
-  gridSize: number,
+  gridSize: IsoGridSize,
   placements: readonly IsoPlacement[],
 ): Map<string, number> {
   const composed = getGridCells(gridSize)
@@ -313,7 +311,7 @@ export type IsoSnapResult = Readonly<{
 }>;
 
 export type IsoSnapOptions = Readonly<{
-  gridSize: number;
+  gridSize: IsoGridSize;
   /** Snap distance measured in levels. */
   threshold: number;
   mode: "free" | "magnet" | "whole";
