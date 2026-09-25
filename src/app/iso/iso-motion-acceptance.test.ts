@@ -52,15 +52,16 @@ describe("sushi set motion acceptance", () => {
   it("presets apply complete grid and wave setups", () => {
     const rows = getIsoPresetRows(createState().values);
     const command = getIsoSavedPresetCommand(createState(), rows[0]!.preset);
-    expect(command).toEqual({
-      history: "record",
-      label: "Пресет «Стандартный сет (16 шт)»",
-      type: "controls.apply",
-      values: { ...ISO_PRESETS[0]!.values },
-    });
-    // A baked preset carries settings only, so the placed set stays untouched.
-    expect(Object.keys(ISO_PRESETS[0]!.values)).not.toContain("field.placements");
+    expect(command.type).toBe("controls.apply");
     const commandValues = command.type === "controls.apply" ? command.values : {};
+    expect(command.type === "controls.apply" ? command.label : null).toBe(
+      "Пресет «Стандартный сет (16 шт)»",
+    );
+    // Every stored setting is applied, plus the preset's own library and layout.
+    expect(commandValues).toMatchObject({ ...ISO_PRESETS[0]!.values });
+    expect(Object.keys(commandValues ?? {})).toEqual(
+      expect.arrayContaining(["library.objects", "field.placements"]),
+    );
     const applied = { ...createState(), values: { ...createState().values, ...commandValues } };
     expect(heightMatrix({ ...applied, timeline: { currentTimeSeconds: 0, durationSeconds: 4 } })).toHaveLength(4);
     expect(applyCommand(applied, null)).toBe(applied);

@@ -150,19 +150,6 @@ describe("sushi set saved presets", () => {
     expect(file.presets[0].name).toBe("Сет А");
   });
 
-  it("ships baked presets that carry settings only", () => {
-    // The owner rebuilds the layouts in the tool, so no baked preset owns pieces.
-    expect(ISO_PRESETS.every((preset) => preset.objects.length === 0)).toBe(true);
-    expect(ISO_PRESETS.every((preset) => preset.placements.length === 0)).toBe(true);
-    expect(ISO_PRESETS.map((preset) => preset.name)).toEqual([
-      "Стандартный сет (16 шт)",
-      "Средний сет (24 шт)",
-      "Обычный (8 шт)",
-      "Стандартный сет (16_шт) v2",
-      "Большой сет (40)",
-    ]);
-  });
-
   it("leaves the field alone for a settings-only preset", () => {
     const settingsOnly = ISO_PRESETS.find((preset) => preset.objects.length === 0);
     const values = applied(getIsoSavedPresetCommand(withPlacements([at("maki", 0, 0)]), settingsOnly!));
