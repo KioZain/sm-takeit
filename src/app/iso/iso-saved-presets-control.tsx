@@ -110,7 +110,9 @@ function PresetEditor({
           onCommit={onRename}
           value={name}
         />
-        <Button onClick={onOverwrite} size="sm" type="button" variant="outline">
+      </div>
+      <div className={styles.presetLine}>
+        <Button className={styles.presetApply} onClick={onOverwrite} size="sm" type="button" variant="outline">
           Перезаписать
         </Button>
         {row.builtIn ? (
