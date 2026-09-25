@@ -62,24 +62,6 @@ test("browser acceptance: grid length slider rebuilds the field", async ({ page 
   await expect(control).toContainText("1 кл.");
 });
 
-test("browser acceptance: cell size resizes the field live", async ({ page }) => {
-  await openIsoApp(page);
-  const session = await createToolcraftBrowserProofSession(page);
-  const svg = page.locator(ISO_PRODUCT_SVG);
-  const widthBefore = Number(await svg.getAttribute("width"));
-
-  await expectToolcraftProductObservableToChange(
-    session,
-    session.controlAction("grid.cellSize", async (control, currentPage) => {
-      await holdIsoSliderAt(control, currentPage, 0.75);
-    }),
-    { requirementId: "grid.cellSize", selector: ISO_PRODUCT_SVG },
-  );
-  // The field is already resized while the pointer is still held.
-  expect(Number(await svg.getAttribute("width"))).toBeGreaterThan(widthBefore);
-  await page.mouse.up();
-});
-
 test("browser acceptance: grid visibility hides and shows the dashed field", async ({ page }) => {
   await openIsoApp(page);
   const session = await createToolcraftBrowserProofSession(page);

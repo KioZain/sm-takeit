@@ -1,7 +1,6 @@
 import type { ToolcraftPanelActionContext } from "@/toolcraft/runtime/react";
 
 import { clampCellRect, fillCellRect } from "./iso-geometry";
-import { getIsoPresetCommand } from "./iso-presets";
 import { clearReliefEdits } from "./iso-relief";
 import {
   createIsoPlacementsCommand,
@@ -20,6 +19,7 @@ import {
 /**
  * Local Field and Relief commands. Resetting height edits acts on the
  * selected section when there is one, otherwise on the whole field.
+ * Presets are applied by their own panel control, not through an action.
  */
 export function handleIsoPanelAction({
   action,
@@ -27,12 +27,6 @@ export function handleIsoPanelAction({
   reportFeedback,
   state,
 }: ToolcraftPanelActionContext): void {
-  const presetCommand = getIsoPresetCommand(action.value);
-  if (presetCommand) {
-    dispatch(presetCommand);
-    return;
-  }
-
   const placements = getIsoActivePlacements(state);
   const gridSize = getIsoGridSize(state.values);
   const relief = getIsoReliefLayers(state);

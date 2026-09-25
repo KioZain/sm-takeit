@@ -106,21 +106,4 @@ export const appReliefAcceptance: readonly ToolcraftComponentAcceptance[] = [
     target: ISO_TARGETS.reliefStep,
     userAction: "Drag Falloff and watch the column outlines.",
   },
-  {
-    automated: true,
-    automatedTestName: "level height scales raised columns live",
-    browser: {
-      budget: "standard",
-      file: specs.grid,
-      testName: "browser acceptance: level height stretches raised columns live",
-    },
-    componentType: "slider",
-    evidence: "rendered-pixels",
-    expectedObservable: "Dragging Level makes raised columns taller or shorter during the drag.",
-    fixture: "field with raised columns",
-    id: "grid.levelHeight",
-    kind: "control",
-    target: ISO_TARGETS.levelHeight,
-    userAction: "Drag the Level slider and watch the raised columns.",
-  },
 ];

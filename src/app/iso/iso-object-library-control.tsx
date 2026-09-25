@@ -5,7 +5,15 @@ import {
   useToolcraftMediaPresentationUrls,
   type ToolcraftCustomControlRendererProps,
 } from "@/toolcraft/runtime/react";
-import { Button, Input, Label, ToggleGroup, ToggleGroupItem } from "@/toolcraft/ui";
+import {
+  Button,
+  ControlFieldLabel,
+  ControlFieldLabelHelpProvider,
+  createControlHistoryGroupId,
+  ToggleGroup,
+  ToggleGroupItem,
+  type ControlChangeMeta,
+} from "@/toolcraft/ui";
 
 import {
   getFootprintDiamond,
@@ -15,6 +23,7 @@ import {
   type IsoObjectRecord,
   type IsoPoint,
 } from "./iso-geometry";
+import { CommitInput } from "./iso-commit-input";
 import { toSvgPath } from "./iso-scene";
 import {
   getIsoActiveObjectId,
@@ -80,6 +89,27 @@ function getContainBox(surface: DOMRect, size: IsoObjectRecord["size"]): ImageBo
   };
 }
 
+/** Anchor under a pointer position, or null while the image size is unknown. */
+function getAnchorAtPointer(
+  surface: HTMLElement,
+  size: IsoObjectRecord["size"],
+  clientX: number,
+  clientY: number,
+): IsoPoint | null {
+  const rect = surface.getBoundingClientRect();
+  const contain = getContainBox(rect, size);
+  if (!contain) return null;
+  return {
+    x: roundAnchor(clamp01((clientX - rect.left - contain.left) / contain.width)),
+    y: roundAnchor(clamp01((clientY - rect.top - contain.top) / contain.height)),
+  };
+}
+
+const ANCHOR_LABEL = "Привязка к клетке";
+const ANCHOR_HELP =
+  "Точка изображения, которая встаёт в центр клетки. Нажми и веди по картинке, чтобы её задать, " +
+  "или двигай стрелками — Shift ускоряет шаг.";
+
 function AnchorPicker({
   anchor,
   name,
@@ -89,11 +119,13 @@ function AnchorPicker({
 }: Readonly<{
   anchor: IsoPoint;
   name: string;
-  onChange: (anchor: IsoPoint) => void;
+  onChange: (anchor: IsoPoint, meta?: ControlChangeMeta) => void;
   size: IsoObjectRecord["size"];
   url: string | undefined;
 }>): React.JSX.Element {
   const surfaceRef = React.useRef<HTMLButtonElement | null>(null);
+  // One history group per drag, so a whole sweep undoes as a single edit.
+  const dragGroupRef = React.useRef<string | null>(null);
   const [surfaceSize, setSurfaceSize] = React.useState<DOMRect | null>(null);
 
   React.useLayoutEffect(() => {
@@ -108,16 +140,27 @@ function AnchorPicker({
 
   const box = surfaceSize ? getContainBox(surfaceSize, size) : null;
 
-  const setFromPointer = (event: React.PointerEvent<HTMLButtonElement>) => {
-    const surface = surfaceRef.current;
-    if (!surface || event.button !== 0) return;
-    const rect = surface.getBoundingClientRect();
-    const contain = getContainBox(rect, size);
-    if (!contain) return;
-    onChange({
-      x: roundAnchor(clamp01((event.clientX - rect.left - contain.left) / contain.width)),
-      y: roundAnchor(clamp01((event.clientY - rect.top - contain.top) / contain.height)),
-    });
+  const dragTo = (surface: HTMLButtonElement, clientX: number, clientY: number) => {
+    const next = getAnchorAtPointer(surface, size, clientX, clientY);
+    const group = dragGroupRef.current;
+    if (next && group) onChange(next, { history: "merge", historyGroup: group });
+  };
+
+  const startDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.button > 0) return;
+    event.preventDefault();
+    dragGroupRef.current = createControlHistoryGroupId("iso-anchor");
+    event.currentTarget.setPointerCapture(event.pointerId);
+    dragTo(event.currentTarget, event.clientX, event.clientY);
+  };
+
+  const continueDrag = (event: React.PointerEvent<HTMLButtonElement>) => {
+    if (event.buttons !== 1 || !dragGroupRef.current) return;
+    dragTo(event.currentTarget, event.clientX, event.clientY);
+  };
+
+  const endDrag = () => {
+    dragGroupRef.current = null;
   };
 
   const nudge = (event: React.KeyboardEvent<HTMLButtonElement>) => {
@@ -141,70 +184,39 @@ function AnchorPicker({
   };
 
   return (
-    <Button
-      aria-label={`Точка опоры «${name}»: ${Math.round(anchor.x * 100)}% по ширине, ${Math.round(anchor.y * 100)}% по высоте`}
-      className={styles.anchorButton}
-      data-iso-anchor-picker=""
-      onKeyDown={nudge}
-      onPointerDown={setFromPointer}
-      ref={surfaceRef}
-      type="button"
-      variant="outline"
-    >
-      <span className={styles.anchorCanvas}>
-        {url ? <img alt="" className={styles.anchorImage} src={url} /> : null}
-        {box ? (
-          <span
-            className={styles.anchorMarker}
-            data-iso-anchor-marker=""
-            style={{
-              left: box.left + anchor.x * box.width,
-              top: box.top + anchor.y * box.height,
-            }}
-          />
-        ) : null}
-      </span>
-    </Button>
-  );
-}
-
-function CommitInput({
-  "aria-label": ariaLabel,
-  id,
-  inputMode,
-  onCommit,
-  onStep,
-  value,
-}: Readonly<{
-  "aria-label"?: string;
-  id: string;
-  inputMode?: "decimal" | "text";
-  onCommit: (value: string) => void;
-  onStep?: (direction: 1 | -1, large: boolean) => void;
-  value: string;
-}>): React.JSX.Element {
-  const [draft, setDraft] = React.useState(value);
-  React.useEffect(() => setDraft(value), [value]);
-  return (
-    <Input
-      aria-label={ariaLabel}
-      id={id}
-      inputMode={inputMode}
-      onBlur={() => onCommit(draft)}
-      onChange={(event) => setDraft(event.currentTarget.value)}
-      onKeyDown={(event) => {
-        if (event.key === "Enter") {
-          event.preventDefault();
-          onCommit(draft);
-        } else if (event.key === "Escape") {
-          setDraft(value);
-        } else if (onStep && (event.key === "ArrowUp" || event.key === "ArrowDown")) {
-          event.preventDefault();
-          onStep(event.key === "ArrowUp" ? 1 : -1, event.shiftKey);
-        }
-      }}
-      value={draft}
-    />
+    <div className={styles.field}>
+      <ControlFieldLabelHelpProvider help={ANCHOR_HELP} label={ANCHOR_LABEL}>
+        <ControlFieldLabel>{ANCHOR_LABEL}</ControlFieldLabel>
+      </ControlFieldLabelHelpProvider>
+      <Button
+        aria-label={`${ANCHOR_LABEL} «${name}»: ${Math.round(anchor.x * 100)}% по ширине, ${Math.round(anchor.y * 100)}% по высоте`}
+        className={styles.anchorButton}
+        data-iso-anchor-picker=""
+        onKeyDown={nudge}
+        onLostPointerCapture={endDrag}
+        onPointerCancel={endDrag}
+        onPointerDown={startDrag}
+        onPointerMove={continueDrag}
+        onPointerUp={endDrag}
+        ref={surfaceRef}
+        type="button"
+        variant="outline"
+      >
+        <span className={styles.anchorCanvas}>
+          {url ? <img alt="" className={styles.anchorImage} src={url} /> : null}
+          {box ? (
+            <span
+              className={styles.anchorMarker}
+              data-iso-anchor-marker=""
+              style={{
+                left: box.left + anchor.x * box.width,
+                top: box.top + anchor.y * box.height,
+              }}
+            />
+          ) : null}
+        </span>
+      </Button>
+    </div>
   );
 }
 
@@ -225,14 +237,17 @@ export function IsoObjectLibraryControl({
 
   if (objects.length === 0) return null;
 
-  const commit = (next: IsoLibraryValue) => setValue(next);
-  const updateActive = (patch: Partial<IsoObjectRecord>) => {
+  const commit = (next: IsoLibraryValue, meta?: ControlChangeMeta) => setValue(next, meta);
+  const updateActive = (patch: Partial<IsoObjectRecord>, meta?: ControlChangeMeta) => {
     if (!active) return;
     const library = readIsoLibraryValue(state.values);
-    commit({
-      activeId: library.activeId,
-      items: { ...library.items, [active.id]: { ...active.record, ...patch } },
-    });
+    commit(
+      {
+        activeId: library.activeId,
+        items: { ...library.items, [active.id]: { ...active.record, ...patch } },
+      },
+      meta,
+    );
   };
 
   return (
@@ -266,26 +281,8 @@ export function IsoObjectLibraryControl({
 
       {active ? (
         <>
-          <AnchorPicker
-            anchor={active.record.anchor}
-            name={active.record.name}
-            onChange={(anchor) => updateActive({ anchor })}
-            size={active.record.size}
-            url={urls.get(active.id)}
-          />
           <div className={styles.field}>
-            <Label htmlFor={`${baseId}-name`}>Имя</Label>
-            <CommitInput
-              id={`${baseId}-name`}
-              onCommit={(name) => {
-                const trimmed = name.trim();
-                if (trimmed && trimmed !== active.record.name) updateActive({ name: trimmed });
-              }}
-              value={active.record.name}
-            />
-          </div>
-          <div className={styles.field}>
-            <Label id={`${baseId}-footprint`}>Площадь</Label>
+            <ControlFieldLabel id={`${baseId}-footprint`}>Площадь</ControlFieldLabel>
             <ToggleGroup
               aria-labelledby={`${baseId}-footprint`}
               className={styles.footprints}
@@ -304,8 +301,26 @@ export function IsoObjectLibraryControl({
               ))}
             </ToggleGroup>
           </div>
+          <AnchorPicker
+            anchor={active.record.anchor}
+            name={active.record.name}
+            onChange={(anchor, meta) => updateActive({ anchor }, meta)}
+            size={active.record.size}
+            url={urls.get(active.id)}
+          />
           <div className={styles.field}>
-            <Label htmlFor={`${baseId}-scale`}>Масштаб</Label>
+            <ControlFieldLabel htmlFor={`${baseId}-name`}>Имя</ControlFieldLabel>
+            <CommitInput
+              id={`${baseId}-name`}
+              onCommit={(name) => {
+                const trimmed = name.trim();
+                if (trimmed && trimmed !== active.record.name) updateActive({ name: trimmed });
+              }}
+              value={active.record.name}
+            />
+          </div>
+          <div className={styles.field}>
+            <ControlFieldLabel htmlFor={`${baseId}-scale`}>Масштаб</ControlFieldLabel>
             <CommitInput
               id={`${baseId}-scale`}
               inputMode="decimal"

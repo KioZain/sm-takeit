@@ -33,6 +33,7 @@ import {
   type IsoSceneModel,
 } from "./iso-geometry";
 import { createIsoImageStore } from "./iso-image-store";
+import { useIsoRuntimeSectionTitles } from "./iso-runtime-labels";
 import { getIsoOverlayPaths } from "./iso-overlay";
 import {
   ISO_OBJECT_IMAGES_KEY,
@@ -249,6 +250,7 @@ export function IsoCanvas(): React.JSX.Element | null {
   React.useEffect(() => {
     document.title = ISO_PAGE_TITLE;
   }, []);
+  useIsoRuntimeSectionTitles();
   const dispatch = useToolcraftDispatch();
   const pipeline = useToolcraftPipeline();
   const frame = useToolcraftProductSceneFrame();

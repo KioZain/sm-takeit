@@ -160,3 +160,66 @@
   width: max-content;
   max-width: none;
 }
+
+.presets {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  min-width: 0;
+}
+
+.presetLine {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+}
+
+.presetLine > :first-child {
+  flex: 1;
+  min-width: 0;
+}
+
+.presetList {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.presetRow {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+  min-width: 0;
+  padding-bottom: 8px;
+  border-bottom: 1px solid var(--toolcraft-custom-viz-border);
+}
+
+/* One preset per row: the name gets the whole column instead of half of it. */
+.presetApply {
+  width: 100%;
+}
+
+.presetRow:last-child {
+  padding-bottom: 0;
+  border-bottom: 0;
+}
+
+.presetNote {
+  margin: 0;
+  color: var(--muted-foreground);
+  font-size: 11px;
+}
+
+.presetHandle {
+  flex: none;
+  cursor: grab;
+}
+
+.presetRow[data-dragging] {
+  /* Public UI owns its own chrome, so the dragged row shifts instead of dimming. */
+  padding-left: 10px;
+}

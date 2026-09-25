@@ -7,21 +7,6 @@ export const canvasPlacementCommand = "controls.setValue";
 export const appInteractionOwnership: readonly ToolcraftInteractionOwnershipEntry[] = [
   {
     alternative: {
-      reason: "Scaffold chrome is not available in the screen corner, and canvas buttons would cover the set.",
-      surface: "canvas",
-    },
-    capability: "command",
-    evidence: {
-      detail: "The request asks for numbered generator presets; the user chose the top of the panel.",
-      source: "user-request",
-    },
-    id: "generator-presets",
-    reason: "The panel owns applying numbered presets to the grid and relief settings.",
-    surface: "panel",
-    target: ISO_TARGETS.presets,
-  },
-  {
-    alternative: {
       reason: "A panel cell picker would detach placement from the isometric field it edits.",
       surface: "panel",
     },
@@ -82,6 +67,22 @@ export const appInteractionOwnership: readonly ToolcraftInteractionOwnershipEntr
   },
   {
     alternative: {
+      reason: "Naming and listing saved setups has no spatial meaning on the field.",
+      surface: "canvas",
+    },
+    capability: "precise-value-entry",
+    evidence: {
+      detail: "The request asks for a Save preset button with a name that can be edited later.",
+      source: "user-request",
+    },
+    id: "saved-presets",
+    reason: "The panel owns naming, applying, and removing the owner's saved setups.",
+    selectionScope: { mode: "global" },
+    surface: "panel",
+    target: ISO_TARGETS.savedPresets,
+  },
+  {
+    alternative: {
       reason: "Per-object anchor, footprint, and scale have no spatial handle on the field.",
       surface: "canvas",
     },
@@ -95,21 +96,5 @@ export const appInteractionOwnership: readonly ToolcraftInteractionOwnershipEntr
     selectionScope: { mode: "selected-entity", selectionInteractionId: "object-select" },
     surface: "panel",
     target: ISO_TARGETS.libraryObjects,
-  },
-  {
-    alternative: {
-      reason: "Resizing the field by dragging would compete with section selection.",
-      surface: "canvas",
-    },
-    capability: "precise-value-entry",
-    evidence: {
-      detail: "The request asks for a cell size parameter in pixels.",
-      source: "user-request",
-    },
-    id: "grid-cell-size",
-    reason: "The panel owns the exact cell size that the field is derived from.",
-    selectionScope: { mode: "global" },
-    surface: "panel",
-    target: ISO_TARGETS.cellSize,
   },
 ];

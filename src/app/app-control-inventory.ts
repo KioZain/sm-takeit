@@ -6,9 +6,10 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
     entity: "Generator presets",
     entityId: "generator-presets",
     finiteSelectors: [],
-    groupingReason: "Numbered buttons apply complete grid and relief setups in one step.",
+    groupingReason:
+      "Numbered built-in setups and the owner's own saved setups are applied from the same place.",
     id: "presets",
-    targets: [ISO_TARGETS.presets],
+    targets: [ISO_TARGETS.savedPresets],
     title: "Пресеты",
   },
   {
@@ -46,10 +47,15 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
         role: "parameter",
         target: ISO_TARGETS.gridVisible,
       },
+      {
+        reason: "Show rolls changes only whether piece images are drawn and exported.",
+        role: "parameter",
+        target: ISO_TARGETS.showPieces,
+      },
     ],
-    groupingReason: "Width, length, cell size, level height, and visibility together define the rhombus field and its columns.",
+    groupingReason: "Width, length, and what the field shows belong together; cell size and level height are fixed under the hood.",
     id: "grid",
-    targets: [ISO_TARGETS.gridCols, ISO_TARGETS.gridRows, ISO_TARGETS.cellSize, ISO_TARGETS.levelHeight, ISO_TARGETS.gridVisible],
+    targets: [ISO_TARGETS.gridCols, ISO_TARGETS.gridRows, ISO_TARGETS.gridVisible, ISO_TARGETS.showPieces],
     title: "Сетка",
   },
   {
@@ -169,19 +175,14 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
         target: ISO_TARGETS.crop,
       },
       {
-        reason: "Show rolls changes only whether piece images are drawn and exported.",
-        role: "parameter",
-        target: ISO_TARGETS.showPieces,
-      },
-      {
         reason: "Grid in export changes only whether dashed lines are drawn into the PNG.",
         role: "parameter",
         target: ISO_TARGETS.includeGrid,
       },
     ],
-    groupingReason: "Crop, padding, roll visibility, and grid inclusion together decide what the exported frame shows.",
+    groupingReason: "Crop, padding, and grid inclusion together decide what the exported frame shows.",
     id: "framing",
-    targets: [ISO_TARGETS.crop, ISO_TARGETS.padding, ISO_TARGETS.showPieces, ISO_TARGETS.includeGrid],
+    targets: [ISO_TARGETS.crop, ISO_TARGETS.padding, ISO_TARGETS.includeGrid],
     title: "Кадрирование",
   },
   {

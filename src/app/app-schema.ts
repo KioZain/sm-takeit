@@ -9,11 +9,12 @@ import {
 } from "@/toolcraft/runtime";
 
 import appDefaults from "./app-defaults.json" with { type: "json" };
-import { ISO_PRESET_ACTIONS } from "./iso/iso-presets";
+import { ISO_EMPTY_SAVED_PRESETS } from "./iso/iso-saved-presets";
 import { appIdentity } from "./app-identity";
 import {
   isoCompositionControlType,
   isoObjectLibraryControlType,
+  isoSavedPresetsControlType,
 } from "./iso/iso-control-types";
 import {
   ISO_ACTIONS,
@@ -21,7 +22,6 @@ import {
   ISO_EMPTY_LIBRARY,
   ISO_EMPTY_PLACEMENTS,
   ISO_GRID_SIZE_RANGE,
-  ISO_LEVEL_HEIGHT_RANGE,
   ISO_WAVE_LENGTH_RANGE,
   ISO_WAVE_LOOP_SECONDS,
   ISO_LIBRARY_MAX_OBJECTS,
@@ -92,17 +92,20 @@ export const appSchema = defineToolcraft({
         sections: [
           {
             controls: {
-              presets: {
-                actions: ISO_PRESET_ACTIONS,
+              saved: {
                 applicability: always,
+                defaultValue: ISO_EMPTY_SAVED_PRESETS,
+                description:
+                  "Каждая кнопка применяет свой набор настроек сетки и рельефа. Локально пресеты можно переименовать, перезаписать текущими настройками и переставить.",
                 label: false,
-                orderRole: "action",
+                orderRole: "detail",
                 performanceRole: "responsiveness",
-                target: ISO_TARGETS.presets,
-                type: "actions",
+                target: ISO_TARGETS.savedPresets,
+                type: isoSavedPresetsControlType,
               } satisfies ToolcraftControlSchema,
             },
-            description: "Готовые настройки сетки и волны рельефа. Отмена возвращает прежние значения.",
+            description:
+              "Готовые настройки сетки и волны рельефа. Нажатие применяет пресет одним шагом, отмена возвращает прежние значения.",
             id: "presets",
             title: "Пресеты",
           },
@@ -167,36 +170,6 @@ export const appSchema = defineToolcraft({
                 unit: "кл.",
                 variant: "discrete",
               } satisfies ToolcraftControlSchema,
-              cellSize: {
-                applicability: always,
-                defaultValue: ISO_DEFAULTS.cellSize,
-                description: "Ширина ромба одной клетки; от неё зависит размер поля на холсте.",
-                label: "Клетка",
-                max: 240,
-                min: 24,
-                orderRole: "primary",
-                performanceRole: "responsiveness",
-                sliderValueKind: "continuous",
-                step: 1,
-                target: ISO_TARGETS.cellSize,
-                type: "slider",
-                unit: "px",
-              } satisfies ToolcraftControlSchema,
-              levelHeight: {
-                applicability: always,
-                defaultValue: ISO_DEFAULTS.levelHeight,
-                description: "Высота одного уровня колонки в процентах от ширины клетки.",
-                label: "Уровень",
-                max: ISO_LEVEL_HEIGHT_RANGE.max,
-                min: ISO_LEVEL_HEIGHT_RANGE.min,
-                orderRole: "detail",
-                performanceRole: "responsiveness",
-                sliderValueKind: "continuous",
-                step: 1,
-                target: ISO_TARGETS.levelHeight,
-                type: "slider",
-                unit: "%",
-              } satisfies ToolcraftControlSchema,
               visible: {
                 applicability: always,
                 defaultValue: ISO_DEFAULTS.gridVisible,
@@ -204,6 +177,17 @@ export const appSchema = defineToolcraft({
                 orderRole: "detail",
                 performanceRole: "responsiveness",
                 target: ISO_TARGETS.gridVisible,
+                type: "switch",
+              } satisfies ToolcraftControlSchema,
+              showPieces: {
+                applicability: always,
+                defaultValue: ISO_DEFAULTS.showPieces,
+                description:
+                  "Скрывает все роллы на холсте, в превью карточек и в PNG; расстановка сохраняется. Включите «Показывать сетку при экспорте», чтобы сохранить только сетку.",
+                label: "Показывать роллы",
+                orderRole: "detail",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.showPieces,
                 type: "switch",
               } satisfies ToolcraftControlSchema,
             },
@@ -467,21 +451,10 @@ export const appSchema = defineToolcraft({
                 type: "slider",
                 unit: "px",
               } satisfies ToolcraftControlSchema,
-              showPieces: {
-                applicability: always,
-                defaultValue: ISO_DEFAULTS.showPieces,
-                description:
-                  "Скрывает все роллы на холсте, в превью карточек и в PNG; расстановка сохраняется. Включите «Сетка в экспорте», чтобы сохранить только сетку.",
-                label: "Показывать роллы",
-                orderRole: "detail",
-                performanceRole: "responsiveness",
-                target: ISO_TARGETS.showPieces,
-                type: "switch",
-              } satisfies ToolcraftControlSchema,
               includeGrid: {
                 applicability: always,
                 defaultValue: ISO_DEFAULTS.includeGrid,
-                label: "Сетка в экспорте",
+                label: "Показывать сетку при экспорте",
                 orderRole: "detail",
                 performanceRole: "responsiveness",
                 target: ISO_TARGETS.includeGrid,
@@ -503,6 +476,8 @@ export const appSchema = defineToolcraft({
     toolbar: {
       history: true,
       radar: true,
+      // Light is the only published theme, so the toggle is hidden.
+      theme: false,
       zoom: true,
     },
   },

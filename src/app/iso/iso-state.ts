@@ -52,6 +52,7 @@ export const ISO_TARGETS = {
   padding: "output.padding",
   placements: "field.placements",
   presets: "presets.apply",
+  savedPresets: "presets.saved",
   reliefCommands: "relief.commands",
   reliefCorner: "relief.corner",
   reliefEdge: "relief.edge",
@@ -95,7 +96,7 @@ export const ISO_DEFAULTS = {
   includeBackground: false,
   includeGrid: false,
   /** One column level as a percentage of the cell width. */
-  levelHeight: 50,
+  levelHeight: 24,
   padding: 24,
   reliefCorner: "top" as IsoReliefCorner,
   reliefEdge: "top-left" as IsoReliefEdge,
@@ -191,6 +192,12 @@ export const ISO_VISIBLE_TOOLS: readonly IsoTool[] = ["place", "erase"];
 
 /** Solid (hidden-line) column guide, fixed under the hood instead of a panel switch. */
 export const ISO_SOLID_COLUMNS = true;
+
+/**
+ * Targets that keep their state, defaults, and readers but have no panel control.
+ * Presets may still write them; CHANGELOG.md lists why each one is hidden.
+ */
+export const ISO_HIDDEN_TARGETS: readonly string[] = [ISO_TARGETS.cellSize, ISO_TARGETS.levelHeight];
 
 export function readIsoTool(values: IsoStateSource["values"]): IsoTool {
   const tool = values[ISO_TARGETS.tool];

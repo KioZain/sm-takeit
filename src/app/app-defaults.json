@@ -14,14 +14,122 @@
       },
       "canvas.size.width": 480,
       "canvas.size.height": 264,
+      "presets.saved": {
+        "items": [],
+        "order": []
+      },
       "grid.cols": 6,
       "grid.rows": 6,
-      "grid.cellSize": 72,
-      "grid.levelHeight": 50,
       "grid.visible": true,
+      "output.showPieces": true,
       "library.objects": {
         "activeId": null,
-        "items": {}
+        "items": {
+          "media-1": {
+            "anchor": {
+              "x": 0.5,
+              "y": 0.9
+            },
+            "footprint": "1x1",
+            "name": "sushi_1",
+            "scale": 1,
+            "size": {
+              "height": 768,
+              "width": 768
+            }
+          },
+          "media-2": {
+            "anchor": {
+              "x": 0.5,
+              "y": 0.9
+            },
+            "footprint": "1x1",
+            "name": "sushi_2",
+            "scale": 1,
+            "size": {
+              "height": 768,
+              "width": 768
+            }
+          },
+          "media-3": {
+            "anchor": {
+              "x": 0.5,
+              "y": 0.9
+            },
+            "footprint": "1x1",
+            "name": "sushi_3",
+            "scale": 1,
+            "size": {
+              "height": 768,
+              "width": 768
+            }
+          },
+          "media-4": {
+            "anchor": {
+              "x": 0.5,
+              "y": 0.9
+            },
+            "footprint": "1x1",
+            "name": "sushi_4",
+            "scale": 1,
+            "size": {
+              "height": 768,
+              "width": 768
+            }
+          },
+          "media-5": {
+            "anchor": {
+              "x": 0.5,
+              "y": 0.9
+            },
+            "footprint": "1x1",
+            "name": "sushi_5",
+            "scale": 1,
+            "size": {
+              "height": 768,
+              "width": 768
+            }
+          },
+          "media-6": {
+            "anchor": {
+              "x": 0.5,
+              "y": 0.9
+            },
+            "footprint": "1x1",
+            "name": "sushi_6",
+            "scale": 1,
+            "size": {
+              "height": 768,
+              "width": 768
+            }
+          },
+          "media-7": {
+            "anchor": {
+              "x": 0.5,
+              "y": 0.9
+            },
+            "footprint": "1x1",
+            "name": "sushi_long_1",
+            "scale": 1,
+            "size": {
+              "height": 768,
+              "width": 768
+            }
+          },
+          "media-8": {
+            "anchor": {
+              "x": 0.5,
+              "y": 0.9
+            },
+            "footprint": "1x1",
+            "name": "sushi_long_2",
+            "scale": 1,
+            "size": {
+              "height": 768,
+              "width": 768
+            }
+          }
+        }
       },
       "field.tool": "place",
       "field.placements": {
@@ -38,12 +146,13 @@
       "relief.waveEasing": "sine",
       "output.crop": "field",
       "output.padding": 24,
-      "output.showPieces": true,
       "output.includeGrid": false,
       "export.image.format": "png",
       "export.image.resolution": "4k",
       "export.video.format": "mp4",
-      "export.video.resolution": "current"
+      "export.video.resolution": "current",
+      "grid.cellSize": 72,
+      "grid.levelHeight": 24
     },
     "canvas": {
       "offset": {
@@ -94,10 +203,277 @@
       "selectedKeyframeId": null,
       "keyframeGroups": []
     },
-    "layers": [],
-    "selectedLayerId": null,
-    "mediaAssets": []
+    "layers": [
+      {
+        "id": "layer-1",
+        "name": "sushi_1",
+        "visible": true,
+        "kind": "layer",
+        "displayName": "sushi_1"
+      },
+      {
+        "id": "layer-2",
+        "name": "sushi_2",
+        "visible": true,
+        "kind": "layer",
+        "displayName": "sushi_2"
+      },
+      {
+        "id": "layer-3",
+        "name": "sushi_3",
+        "visible": true,
+        "kind": "layer",
+        "displayName": "sushi_3"
+      },
+      {
+        "id": "layer-4",
+        "name": "sushi_4",
+        "visible": true,
+        "kind": "layer",
+        "displayName": "sushi_4"
+      },
+      {
+        "id": "layer-5",
+        "name": "sushi_5",
+        "visible": true,
+        "kind": "layer",
+        "displayName": "sushi_5"
+      },
+      {
+        "id": "layer-6",
+        "name": "sushi_6",
+        "visible": true,
+        "kind": "layer",
+        "displayName": "sushi_6"
+      },
+      {
+        "id": "layer-7",
+        "name": "sushi_long_1",
+        "visible": true,
+        "kind": "layer",
+        "displayName": "sushi_long_1"
+      },
+      {
+        "id": "layer-8",
+        "name": "sushi_long_2",
+        "visible": true,
+        "kind": "layer",
+        "displayName": "sushi_long_2"
+      }
+    ],
+    "selectedLayerId": "layer-8",
+    "mediaAssets": [
+      {
+        "lifecycle": "restoring",
+        "resourceRef": "media:file:sha256:3fbbe5c7ee7b84cfd041f3044e3ac08aeb24c6ac604db94fa3d408d0d556fc9f",
+        "assetKind": "file",
+        "fileName": "sushi_1.png",
+        "sourcePaths": [
+          "sushi_1.png"
+        ],
+        "id": "media-1",
+        "layerId": "layer-1",
+        "mimeType": "image/png",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "sourceTarget": "library.files"
+      },
+      {
+        "lifecycle": "restoring",
+        "resourceRef": "media:file:sha256:441979dca026eccb9c2dbd0bf32f037990f0acfc90e5b592eb1631f27e44cb67",
+        "assetKind": "file",
+        "fileName": "sushi_2.png",
+        "sourcePaths": [
+          "sushi_2.png"
+        ],
+        "id": "media-2",
+        "layerId": "layer-2",
+        "mimeType": "image/png",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "sourceTarget": "library.files"
+      },
+      {
+        "lifecycle": "restoring",
+        "resourceRef": "media:file:sha256:84e9744190170b3b1f9dcde68bf2c0ad45285f94ca13954df4a363dc83f3211b",
+        "assetKind": "file",
+        "fileName": "sushi_3.png",
+        "sourcePaths": [
+          "sushi_3.png"
+        ],
+        "id": "media-3",
+        "layerId": "layer-3",
+        "mimeType": "image/png",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "sourceTarget": "library.files"
+      },
+      {
+        "lifecycle": "restoring",
+        "resourceRef": "media:file:sha256:fb9aea354915189b5267e4199262e0f2a2a1617beaed660f679c17ec47c69add",
+        "assetKind": "file",
+        "fileName": "sushi_4.png",
+        "sourcePaths": [
+          "sushi_4.png"
+        ],
+        "id": "media-4",
+        "layerId": "layer-4",
+        "mimeType": "image/png",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "sourceTarget": "library.files"
+      },
+      {
+        "lifecycle": "restoring",
+        "resourceRef": "media:file:sha256:cffa4b86098656421a66ba3421077b46efb5c63b5052bf0173b6c01266d4514e",
+        "assetKind": "file",
+        "fileName": "sushi_5.png",
+        "sourcePaths": [
+          "sushi_5.png"
+        ],
+        "id": "media-5",
+        "layerId": "layer-5",
+        "mimeType": "image/png",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "sourceTarget": "library.files"
+      },
+      {
+        "lifecycle": "restoring",
+        "resourceRef": "media:file:sha256:13e9f9b4e2fc8021cb69e52e94c3edce34ff019df4305afd5629aecc9e818baa",
+        "assetKind": "file",
+        "fileName": "sushi_6.png",
+        "sourcePaths": [
+          "sushi_6.png"
+        ],
+        "id": "media-6",
+        "layerId": "layer-6",
+        "mimeType": "image/png",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "sourceTarget": "library.files"
+      },
+      {
+        "lifecycle": "restoring",
+        "resourceRef": "media:file:sha256:ea3f0f33d61780b048a3f73d97859b58fd76e7b4b9b9732a0728ef9639ef8145",
+        "assetKind": "file",
+        "fileName": "sushi_long_1.png",
+        "sourcePaths": [
+          "sushi_long_1.png"
+        ],
+        "id": "media-7",
+        "layerId": "layer-7",
+        "mimeType": "image/png",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "sourceTarget": "library.files"
+      },
+      {
+        "lifecycle": "restoring",
+        "resourceRef": "media:file:sha256:cc2345fddcf785606468f847cc00df035f8327001a9d4d537aa5af0e529076f8",
+        "assetKind": "file",
+        "fileName": "sushi_long_2.png",
+        "sourcePaths": [
+          "sushi_long_2.png"
+        ],
+        "id": "media-8",
+        "layerId": "layer-8",
+        "mimeType": "image/png",
+        "position": {
+          "x": 0,
+          "y": 0
+        },
+        "sourceTarget": "library.files"
+      }
+    ]
   },
-  "resources": [],
+  "resources": [
+    {
+      "ref": "media:file:sha256:cc2345fddcf785606468f847cc00df035f8327001a9d4d537aa5af0e529076f8",
+      "path": "toolcraft-defaults/files/cc2345fddcf785606468f847cc00df035f8327001a9d4d537aa5af0e529076f8.bin",
+      "sha256": "cc2345fddcf785606468f847cc00df035f8327001a9d4d537aa5af0e529076f8",
+      "byteLength": 456696,
+      "contentType": "image/png",
+      "dependencies": [],
+      "durable": true
+    },
+    {
+      "ref": "media:file:sha256:ea3f0f33d61780b048a3f73d97859b58fd76e7b4b9b9732a0728ef9639ef8145",
+      "path": "toolcraft-defaults/files/ea3f0f33d61780b048a3f73d97859b58fd76e7b4b9b9732a0728ef9639ef8145.bin",
+      "sha256": "ea3f0f33d61780b048a3f73d97859b58fd76e7b4b9b9732a0728ef9639ef8145",
+      "byteLength": 472975,
+      "contentType": "image/png",
+      "dependencies": [],
+      "durable": true
+    },
+    {
+      "ref": "media:file:sha256:13e9f9b4e2fc8021cb69e52e94c3edce34ff019df4305afd5629aecc9e818baa",
+      "path": "toolcraft-defaults/files/13e9f9b4e2fc8021cb69e52e94c3edce34ff019df4305afd5629aecc9e818baa.bin",
+      "sha256": "13e9f9b4e2fc8021cb69e52e94c3edce34ff019df4305afd5629aecc9e818baa",
+      "byteLength": 509799,
+      "contentType": "image/png",
+      "dependencies": [],
+      "durable": true
+    },
+    {
+      "ref": "media:file:sha256:cffa4b86098656421a66ba3421077b46efb5c63b5052bf0173b6c01266d4514e",
+      "path": "toolcraft-defaults/files/cffa4b86098656421a66ba3421077b46efb5c63b5052bf0173b6c01266d4514e.bin",
+      "sha256": "cffa4b86098656421a66ba3421077b46efb5c63b5052bf0173b6c01266d4514e",
+      "byteLength": 463881,
+      "contentType": "image/png",
+      "dependencies": [],
+      "durable": true
+    },
+    {
+      "ref": "media:file:sha256:fb9aea354915189b5267e4199262e0f2a2a1617beaed660f679c17ec47c69add",
+      "path": "toolcraft-defaults/files/fb9aea354915189b5267e4199262e0f2a2a1617beaed660f679c17ec47c69add.bin",
+      "sha256": "fb9aea354915189b5267e4199262e0f2a2a1617beaed660f679c17ec47c69add",
+      "byteLength": 461282,
+      "contentType": "image/png",
+      "dependencies": [],
+      "durable": true
+    },
+    {
+      "ref": "media:file:sha256:84e9744190170b3b1f9dcde68bf2c0ad45285f94ca13954df4a363dc83f3211b",
+      "path": "toolcraft-defaults/files/84e9744190170b3b1f9dcde68bf2c0ad45285f94ca13954df4a363dc83f3211b.bin",
+      "sha256": "84e9744190170b3b1f9dcde68bf2c0ad45285f94ca13954df4a363dc83f3211b",
+      "byteLength": 431553,
+      "contentType": "image/png",
+      "dependencies": [],
+      "durable": true
+    },
+    {
+      "ref": "media:file:sha256:441979dca026eccb9c2dbd0bf32f037990f0acfc90e5b592eb1631f27e44cb67",
+      "path": "toolcraft-defaults/files/441979dca026eccb9c2dbd0bf32f037990f0acfc90e5b592eb1631f27e44cb67.bin",
+      "sha256": "441979dca026eccb9c2dbd0bf32f037990f0acfc90e5b592eb1631f27e44cb67",
+      "byteLength": 489981,
+      "contentType": "image/png",
+      "dependencies": [],
+      "durable": true
+    },
+    {
+      "ref": "media:file:sha256:3fbbe5c7ee7b84cfd041f3044e3ac08aeb24c6ac604db94fa3d408d0d556fc9f",
+      "path": "toolcraft-defaults/files/3fbbe5c7ee7b84cfd041f3044e3ac08aeb24c6ac604db94fa3d408d0d556fc9f.bin",
+      "sha256": "3fbbe5c7ee7b84cfd041f3044e3ac08aeb24c6ac604db94fa3d408d0d556fc9f",
+      "byteLength": 518468,
+      "contentType": "image/png",
+      "dependencies": [],
+      "durable": true
+    }
+  ],
   "theme": "light"
 }

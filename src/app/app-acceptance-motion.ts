@@ -1,5 +1,4 @@
 import type { ToolcraftComponentAcceptance, ToolcraftExportRequestEvidence } from "./acceptance/types";
-import { ISO_PRESET_ACTIONS } from "./iso/iso-presets";
 import { ISO_TARGETS } from "./iso/iso-state";
 
 const specs = {
@@ -21,23 +20,23 @@ export const videoExportRequestEvidence: ToolcraftExportRequestEvidence = {
 /** Acceptance rows for the looping relief wave, its timeline, and video delivery. */
 export const appMotionAcceptance: readonly ToolcraftComponentAcceptance[] = [
   {
-    actionCoverage: ISO_PRESET_ACTIONS.map((action) => action.value),
     automated: true,
     automatedTestName: "presets apply complete grid and wave setups",
     browser: {
       budget: "standard",
       file: specs.motion,
-      testName: "browser acceptance: numbered presets reshape the grid and wave",
+      testName: "browser acceptance: a saved preset restores its settings and layout",
     },
-    componentType: "actions",
+    componentType: "custom",
     evidence: "rendered-pixels",
-    expectedObservable: "Clicking a preset number resizes the grid and switches the relief to that preset's wave in one undoable step.",
+    expectedObservable:
+      "Each preset name is a full-width button that reshapes the grid and the relief in one undoable step; local builds also rename, overwrite and reorder them.",
     fixture: "default flat field",
-    id: "presets.apply",
-    interactionId: "generator-presets",
+    id: "presets.saved",
+    interactionId: "saved-presets",
     kind: "control",
-    target: ISO_TARGETS.presets,
-    userAction: "Click each preset number, then Undo.",
+    target: ISO_TARGETS.savedPresets,
+    userAction: "Click each preset name, then Undo.",
   },
   {
     automated: true,

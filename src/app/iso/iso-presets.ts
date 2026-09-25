@@ -1,58 +1,78 @@
-import type { ToolcraftCommand } from "@/toolcraft/runtime";
-
+import type { IsoSavedPreset } from "./iso-saved-presets";
 import { ISO_TARGETS } from "./iso-state";
 
 /**
- * A numbered generator preset. Its values are applied in one undoable step;
- * targets it leaves out keep their current value.
+ * A built-in generator preset. It has the same shape as a preset saved from the
+ * panel, so both are applied the same way.
+ *
+ * These presets carry settings only: no objects and no pieces, so applying one
+ * reshapes the field and the relief and leaves the uploaded set alone.
  */
-export type IsoPreset = Readonly<{
-  /** Short button label shown in the Presets row. */
-  label: string;
-  values: Readonly<Partial<Record<(typeof ISO_TARGETS)[keyof typeof ISO_TARGETS], unknown>>>;
-}>;
+export type IsoPreset = IsoSavedPreset;
 
-/** Add new presets to the end of this list; each one gets its own numbered button. */
+/** Settings every baked preset shares; each one overrides what makes it different. */
+const SET_VALUES = {
+  [ISO_TARGETS.cellSize]: 72,
+  [ISO_TARGETS.crop]: "field",
+  [ISO_TARGETS.gridRows]: 4,
+  [ISO_TARGETS.gridVisible]: false,
+  [ISO_TARGETS.includeBackground]: false,
+  [ISO_TARGETS.includeGrid]: false,
+  [ISO_TARGETS.padding]: 24,
+  [ISO_TARGETS.reliefCorner]: "top",
+  [ISO_TARGETS.reliefEdge]: "top-left",
+  [ISO_TARGETS.reliefMax]: 1,
+  [ISO_TARGETS.reliefStep]: 2,
+  [ISO_TARGETS.reliefWave]: true,
+  [ISO_TARGETS.reliefWaveDirection]: "outward",
+  [ISO_TARGETS.reliefWaveEasing]: "sine",
+  [ISO_TARGETS.showPieces]: true,
+  [ISO_TARGETS.background]: "#FFFFFF",
+} as const;
+
+function preset(
+  id: string,
+  name: string,
+  values: Readonly<Record<string, unknown>>,
+): IsoPreset {
+  return { id, name, objects: [], placements: [], savedAt: "", values: { ...SET_VALUES, ...values } };
+}
+
+/** Add new presets to the end of this list; each one gets its own button. */
 export const ISO_PRESETS: readonly IsoPreset[] = [
-  {
-    label: "1",
-    values: {
-      [ISO_TARGETS.gridCols]: 4,
-      [ISO_TARGETS.gridRows]: 4,
-      [ISO_TARGETS.levelHeight]: 20,
-      [ISO_TARGETS.reliefCorner]: "top",
-      [ISO_TARGETS.reliefMax]: 2,
-      [ISO_TARGETS.reliefPattern]: "corner-rings",
-      [ISO_TARGETS.reliefWave]: true,
-      [ISO_TARGETS.reliefWaveDirection]: "outward",
-      [ISO_TARGETS.reliefWaveEasing]: "sine",
-      [ISO_TARGETS.reliefWaveLength]: 9,
-    },
-  },
+  preset("built-in-1", "Стандартный сет (16 шт)", {
+    [ISO_TARGETS.gridCols]: 4,
+    [ISO_TARGETS.levelHeight]: 20,
+    [ISO_TARGETS.reliefMax]: 2,
+    [ISO_TARGETS.reliefPattern]: "corner-rings",
+    [ISO_TARGETS.reliefWaveLength]: 9,
+  }),
+  preset("built-in-medium-24", "Средний сет (24 шт)", {
+    [ISO_TARGETS.gridCols]: 6,
+    [ISO_TARGETS.levelHeight]: 24,
+    [ISO_TARGETS.reliefPattern]: "corner-diagonal",
+    [ISO_TARGETS.reliefWaveLength]: 7,
+  }),
+  preset("built-in-plain-8", "Обычный (8 шт)", {
+    [ISO_TARGETS.background]: "#D9D8D8",
+    [ISO_TARGETS.gridCols]: 2,
+    [ISO_TARGETS.levelHeight]: 24,
+    [ISO_TARGETS.reliefEdge]: "top-right",
+    [ISO_TARGETS.reliefPattern]: "edge",
+    [ISO_TARGETS.reliefWaveLength]: 7,
+  }),
+  preset("preset-mugp7855", "Стандартный сет (16_шт) v2", {
+    [ISO_TARGETS.gridCols]: 4,
+    [ISO_TARGETS.levelHeight]: 20,
+    [ISO_TARGETS.reliefPattern]: "checker",
+    [ISO_TARGETS.reliefWaveLength]: 9,
+  }),
+  preset("preset-mugpcld7", "Большой сет (40)", {
+    [ISO_TARGETS.gridCols]: 6,
+    [ISO_TARGETS.gridRows]: 6,
+    [ISO_TARGETS.levelHeight]: 20,
+    [ISO_TARGETS.reliefEdge]: "top-right",
+    [ISO_TARGETS.reliefPattern]: "corner-rings",
+    [ISO_TARGETS.reliefWaveLength]: 9,
+  }),
 ];
-
-const PRESET_ACTION_PREFIX = "preset.";
-
-export function getIsoPresetActionValue(index: number): string {
-  return `${PRESET_ACTION_PREFIX}${index + 1}`;
-}
-
-/** Panel actions for every preset, in list order. */
-export const ISO_PRESET_ACTIONS = ISO_PRESETS.map((preset, index) => ({
-  label: preset.label,
-  value: getIsoPresetActionValue(index),
-}));
-
-/** The command that applies a preset action, or null for other actions. */
-export function getIsoPresetCommand(actionValue: string): ToolcraftCommand | null {
-  if (!actionValue.startsWith(PRESET_ACTION_PREFIX)) return null;
-  const index = Number(actionValue.slice(PRESET_ACTION_PREFIX.length)) - 1;
-  const preset = Number.isInteger(index) ? ISO_PRESETS[index] : undefined;
-  if (!preset) return null;
-  return {
-    history: "record",
-    label: `Пресет ${preset.label}`,
-    type: "controls.apply",
-    values: { ...preset.values },
-  };
-}

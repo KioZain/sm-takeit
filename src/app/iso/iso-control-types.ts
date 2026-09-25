@@ -5,3 +5,6 @@ export const isoObjectLibraryControlType =
 
 export const isoCompositionControlType =
   defineToolcraftCustomControlType("isoComposition");
+
+export const isoSavedPresetsControlType =
+  defineToolcraftCustomControlType("isoSavedPresets");

@@ -1,8 +1,15 @@
 import { describe, expect, it } from "vitest";
 
 import { appSchema } from "../app-schema";
-import { getIsoPresetCommand, ISO_PRESET_ACTIONS, ISO_PRESETS } from "./iso-presets";
-import { buildIsoSceneModelFromState, ISO_TARGETS, ISO_WAVE_LOOP_SECONDS } from "./iso-state";
+import { getIsoPresetRows } from "./iso-preset-list";
+import { ISO_PRESETS } from "./iso-presets";
+import { getIsoSavedPresetCommand } from "./iso-saved-presets";
+import {
+  buildIsoSceneModelFromState,
+  ISO_HIDDEN_TARGETS,
+  ISO_TARGETS,
+  ISO_WAVE_LOOP_SECONDS,
+} from "./iso-state";
 import {
   applyCommand,
   at,
@@ -43,33 +50,23 @@ function videoSelect(target: string) {
 
 describe("sushi set motion acceptance", () => {
   it("presets apply complete grid and wave setups", () => {
-    const { dispatched } = runAction(ISO_PRESET_ACTIONS[0]!.value, createState());
-    expect(dispatched).toEqual([
-      {
-        history: "record",
-        label: "Пресет 1",
-        type: "controls.apply",
-        values: {
-          "grid.cols": 4,
-          "grid.levelHeight": 20,
-          "grid.rows": 4,
-          "relief.corner": "top",
-          "relief.max": 2,
-          "relief.pattern": "corner-rings",
-          "relief.wave": true,
-          "relief.waveDirection": "outward",
-          "relief.waveEasing": "sine",
-          "relief.waveLength": 9,
-        },
-      },
-    ]);
-    const applied = { ...createState(), values: { ...createState().values, ...(dispatched[0]?.type === "controls.apply" ? dispatched[0].values : {}) } };
+    const rows = getIsoPresetRows(createState().values);
+    const command = getIsoSavedPresetCommand(createState(), rows[0]!.preset);
+    expect(command).toEqual({
+      history: "record",
+      label: "Пресет «Стандартный сет (16 шт)»",
+      type: "controls.apply",
+      values: { ...ISO_PRESETS[0]!.values },
+    });
+    // A baked preset carries settings only, so the placed set stays untouched.
+    expect(Object.keys(ISO_PRESETS[0]!.values)).not.toContain("field.placements");
+    const commandValues = command.type === "controls.apply" ? command.values : {};
+    const applied = { ...createState(), values: { ...createState().values, ...commandValues } };
     expect(heightMatrix({ ...applied, timeline: { currentTimeSeconds: 0, durationSeconds: 4 } })).toHaveLength(4);
     expect(applyCommand(applied, null)).toBe(applied);
-    expect(getIsoPresetCommand("preset.99")).toBeNull();
-    expect(getIsoPresetCommand("field.clear")).toBeNull();
 
-    // Every preset only sets real controls, with values those controls accept.
+    // Every preset only sets real controls or documented hidden targets,
+    // with values those controls accept.
     const controls = new Map(
       (appSchema.panels.controls?.sections ?? []).flatMap((section) =>
         Object.values(section.controls).map((control) => [control.target, control] as const),
@@ -78,7 +75,7 @@ describe("sushi set motion acceptance", () => {
     for (const preset of ISO_PRESETS) {
       for (const [target, value] of Object.entries(preset.values)) {
         const control = controls.get(target);
-        expect(control, target).toBeDefined();
+        expect(Boolean(control) || ISO_HIDDEN_TARGETS.includes(target), target).toBe(true);
         if (control && "options" in control && control.options) {
           expect(control.options.map((option) => option.value), target).toContain(value);
         }
@@ -88,7 +85,8 @@ describe("sushi set motion acceptance", () => {
         }
       }
     }
-    expect(ISO_PRESET_ACTIONS.map((action) => action.label)).toEqual(ISO_PRESETS.map((preset) => preset.label));
+    // Every preset is reachable as its own row.
+    expect(rows.map((row) => row.preset.name)).toEqual(ISO_PRESETS.map((item) => item.name));
   });
 
   it("wave turns the relief into a looping travelling wave", () => {
