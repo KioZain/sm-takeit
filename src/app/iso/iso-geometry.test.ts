@@ -27,14 +27,21 @@ const record: IsoObjectRecord = {
 
 const SIX = { cols: 6, rows: 6 };
 
-function at(objectId: string, col: number, row: number, footprint: IsoPlacement["footprint"] = "1x1"): IsoPlacement {
-  return { col, footprint, id: `${objectId}@${col},${row}`, objectId, row };
+function at(
+  objectId: string,
+  col: number,
+  row: number,
+  footprint: IsoPlacement["footprint"] = "1x1",
+  floor = 0,
+): IsoPlacement {
+  return { col, floor, footprint, id: `${objectId}@${col},${row}`, objectId, row };
 }
 
 function sceneInput(overrides: Partial<IsoSceneInput> = {}): IsoSceneInput {
   return {
     cellSize: 100,
     crop: "content",
+    floors: 1,
     gridSize: SIX,
     includeGrid: false,
     objects: { roll: record },

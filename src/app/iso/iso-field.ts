@@ -30,6 +30,11 @@ import {
   type IsoHeightDrag,
 } from "./iso-relief";
 import {
+  findIsoFloorAtPoint,
+  liftPoint,
+  type IsoStack,
+} from "./iso-stack";
+import {
   createIsoReliefEditsCommand,
   createIsoPlacementsCommand,
   type IsoLibraryObject,
@@ -39,6 +44,8 @@ import {
 export type IsoFieldContext = Readonly<{
   active: IsoLibraryObject | null;
   cellSize: number;
+  /** Floor the pointer last resolved to; every edit lands here. */
+  floor: number;
   gridSize: IsoGridSize;
   model: IsoSceneModel;
   /** Hidden pieces outside the current grid, appended to every edit. */
@@ -47,8 +54,11 @@ export type IsoFieldContext = Readonly<{
   /** Live pattern levels and the hand edits over them. */
   relief: Readonly<{ animated: boolean; edits: IsoHeightMap; pattern: IsoHeightMap }>;
   selection: IsoCellRect | null;
-  /** Grid and final column heights used for hit tests and raised outlines. */
+  /** Grid and final column heights of the active floor. */
   space: IsoColumnSpace;
+  /** One space per floor, ground first; a classic field has a single entry. */
+  spaces: readonly IsoColumnSpace[];
+  stack: IsoStack;
   tool: IsoTool;
 }>;
 
@@ -78,14 +88,32 @@ export function getIsoPlacementHeights(field: IsoFieldContext): IsoHeightMap | u
   return field.relief.animated ? undefined : field.space.heights;
 }
 
-/** The column under the point, or null off the field. */
-export function getIsoCellAt(field: IsoFieldContext, point: IsoPoint): IsoCell | null {
-  return getColumnAtPoint(point, field.space);
+/** The same field with its edits and outlines aimed at another floor. */
+export function withIsoFloor(field: IsoFieldContext, floor: number): IsoFieldContext {
+  const space = field.spaces[floor];
+  return space ? { ...field, floor, space } : field;
 }
 
-/** The column under the point, clamped to the field for drags that leave it. */
+/** The column under the point with its floor, or null off the field. */
+export function getIsoStackCellAt(
+  field: IsoFieldContext,
+  point: IsoPoint,
+): Readonly<{ cell: IsoCell; floor: number }> | null {
+  return findIsoFloorAtPoint(point, field.stack, (local, floor) => {
+    const space = field.spaces[floor];
+    const cell = space ? getColumnAtPoint(local, space) : null;
+    return cell ? { cell, floor } : null;
+  });
+}
+
+/** The column under the point on the active floor, or null off the field. */
+export function getIsoCellAt(field: IsoFieldContext, point: IsoPoint): IsoCell | null {
+  return getIsoStackCellAt(field, point)?.cell ?? null;
+}
+
+/** The column under the point, clamped to the active floor for drags that leave it. */
 export function clampIsoCell(field: IsoFieldContext, point: IsoPoint): IsoCell {
-  return getNearestColumn(point, field.space);
+  return getNearestColumn(liftPoint(point, -field.floor, field.stack), field.space);
 }
 
 /** Raised top outlines of every cell in the rectangle. */
@@ -125,7 +153,9 @@ export function getIsoEraseTarget(
         .find((item) => item.imageRect !== null && rectContainsPoint(item.imageRect, point))
     : undefined;
   if (hit) return { id: hit.placement.id, kind: "placement" };
-  const placement = cell ? findPlacementAtCell(field.placements, cell.col, cell.row) : null;
+  const placement = cell
+    ? findPlacementAtCell(field.placements, cell.col, cell.row, field.floor)
+    : null;
   return placement ? { id: placement.id, kind: "placement" } : { kind: "none" };
 }
 
@@ -145,6 +175,7 @@ export function getIsoCellCommand(
       field.active.record.footprint,
       field.gridSize,
       getIsoPlacementHeights(field),
+      field.floor,
     );
     return next ? createIsoPlacementsCommand([...next, ...field.offGrid], "Поставить объект") : null;
   }
@@ -152,7 +183,7 @@ export function getIsoCellCommand(
   const target = getIsoEraseTarget(field, cell, point);
   if (target.kind === "selection") {
     return createIsoPlacementsCommand(
-      [...eraseCellRect(field.placements, target.rect), ...field.offGrid],
+      [...eraseCellRect(field.placements, target.rect, field.floor), ...field.offGrid],
       "Стереть секцию",
     );
   }

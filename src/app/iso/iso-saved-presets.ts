@@ -1,6 +1,6 @@
 import type { ToolcraftCommand } from "@/toolcraft/runtime";
 
-import type { IsoFootprint, IsoPlacement, IsoPoint } from "./iso-geometry";
+import { createPlacementId, type IsoFootprint, type IsoPlacement, type IsoPoint } from "./iso-geometry";
 import {
   getIsoLibraryObjects,
   isIsoFootprint,
@@ -23,6 +23,8 @@ export type IsoSavedObject = Readonly<{
 
 export type IsoSavedPlacement = Readonly<{
   col: number;
+  /** Stacked floor the piece stands on; a classic layout only uses floor 0. */
+  floor: number;
   footprint: IsoFootprint;
   objectName: string;
   row: number;
@@ -56,8 +58,11 @@ export const ISO_SAVED_PRESET_NAME_MAX = 40;
  * is what gets baked in when a preset moves into the source.
  */
 export const ISO_PRESET_VALUE_TARGETS: readonly string[] = [
+  ISO_TARGETS.gridMode,
   ISO_TARGETS.gridCols,
   ISO_TARGETS.gridRows,
+  ISO_TARGETS.gridZone,
+  ISO_TARGETS.gridFloors,
   ISO_TARGETS.cellSize,
   ISO_TARGETS.levelHeight,
   ISO_TARGETS.gridVisible,
@@ -116,7 +121,8 @@ function normalizePlacement(value: unknown): IsoSavedPlacement[] {
   const col = toCell(value.col);
   const row = toCell(value.row);
   if (col === null || row === null || !isIsoFootprint(value.footprint)) return [];
-  return [{ col, footprint: value.footprint, objectName: value.objectName, row }];
+  const floor = toCell(value.floor) ?? 0;
+  return [{ col, floor: Math.max(0, floor), footprint: value.footprint, objectName: value.objectName, row }];
 }
 
 function normalizePreset(value: unknown, index: number): IsoSavedPreset[] {
@@ -175,7 +181,15 @@ export function createIsoSavedPreset(
       const objectName = namesById.get(placement.objectId);
       return objectName === undefined
         ? []
-        : [{ col: placement.col, footprint: placement.footprint, objectName, row: placement.row }];
+        : [
+            {
+              col: placement.col,
+              floor: placement.floor,
+              footprint: placement.footprint,
+              objectName,
+              row: placement.row,
+            },
+          ];
     }),
     savedAt,
     values: pickPresetValues(state.values),
@@ -271,8 +285,9 @@ function toPlacements(preset: IsoSavedPreset, ids: Map<string, string>): IsoPlac
       : [
           {
             col: placement.col,
+            floor: placement.floor,
             footprint: placement.footprint,
-            id: `${objectId}@${placement.col},${placement.row}`,
+            id: createPlacementId(objectId, placement.col, placement.row, placement.floor),
             objectId,
             row: placement.row,
           },

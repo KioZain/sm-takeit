@@ -152,7 +152,10 @@
       "export.video.format": "mp4",
       "export.video.resolution": "current",
       "grid.cellSize": 72,
-      "grid.levelHeight": 24
+      "grid.levelHeight": 24,
+      "grid.mode": "classic",
+      "grid.zone": 3,
+      "grid.floors": 3
     },
     "canvas": {
       "offset": {

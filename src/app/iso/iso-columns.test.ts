@@ -10,7 +10,7 @@ import {
 import { checkPlacement, projectIso } from "./iso-geometry";
 
 function space(heights: Record<string, number>, size = 3, rows = size): IsoColumnSpace {
-  return { cellSize: 100, gridSize: { cols: size, rows }, heights: new Map(Object.entries(heights)), levelHeight: 50 };
+  return { cellSize: 100, floor: 0, gridSize: { cols: size, rows }, heights: new Map(Object.entries(heights)), levelHeight: 50 };
 }
 
 describe("iso columns", () => {

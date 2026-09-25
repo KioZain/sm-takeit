@@ -6,10 +6,13 @@ import {
 import {
   expandRect,
   filterRenderablePlacements,
+  getCellHeight,
   getFieldBounds,
   getFootprintHeights,
+  getGridCells,
   getPlacementImageRect,
   getPointsBounds,
+  projectIso,
   sortPlacementsForDrawing,
   toIntegerFrame,
   unionRects,
@@ -20,52 +23,78 @@ import {
   type IsoSceneItem,
   type IsoSceneModel,
 } from "./iso-geometry";
+import {
+  getIsoFloors,
+  getIsoStack,
+  liftFace,
+  liftPoint,
+  liftRect,
+  liftSegment,
+  type IsoStack,
+} from "./iso-stack";
 
 const GRID_STROKE_MARGIN = 2;
 
-/** Ground field stretched up to the highest column top of `heights`. */
-function getRaisedFieldBounds(input: IsoSceneInput, heights: IsoHeightMap): IsoRect {
-  const ground = getFieldBounds(input.gridSize, input.cellSize);
-  const tops = [...heights].map(([key, level]) => {
-    const [col = 0, row = 0] = key.split(",").map(Number);
-    return ((col + row) * input.cellSize) / 4 - level * input.levelHeight;
-  });
-  const top = Math.min(ground.y, ...tops);
-  return { ...ground, height: ground.y + ground.height - top, y: top };
-}
-
-export function getIsoColumnSpace(input: IsoSceneInput): IsoColumnSpace {
+/** Column space of one floor; a classic field only ever asks for floor 0. */
+export function getIsoColumnSpace(input: IsoSceneInput, floor = 0): IsoColumnSpace {
   return {
     cellSize: input.cellSize,
+    floor,
     gridSize: input.gridSize,
     heights: input.heights,
     levelHeight: input.levelHeight,
   };
 }
 
-/**
- * Pure scene layout: pieces stand on top of their columns (a piece on uneven
- * columns, left over from later height edits, stands on the highest one).
- */
-export function buildIsoSceneModel(input: IsoSceneInput): IsoSceneModel {
-  const space = getIsoColumnSpace(input);
-  const { faces: guideFaces, segments: guide } = getColumnGuide(space, input.hideHiddenLines);
-  const field =
-    unionRects([
-      getFieldBounds(input.gridSize, input.cellSize),
-      getPointsBounds(guide.flatMap((segment) => [segment.from, segment.to])),
-    ]) ?? getFieldBounds(input.gridSize, input.cellSize);
-  const range = input.heightRange;
-  const frameField = range ? (unionRects([field, getRaisedFieldBounds(input, range.high)]) ?? field) : field;
-  const renderable = filterRenderablePlacements(
-    input.placements,
-    new Set(Object.keys(input.objects)),
-    input.gridSize,
+export function getIsoSceneStack(input: IsoSceneInput): IsoStack {
+  return getIsoStack(input.gridSize, input.cellSize, input.floors);
+}
+
+/** One column space per floor, ground first. */
+export function getIsoColumnSpaces(input: IsoSceneInput): IsoColumnSpace[] {
+  return getIsoFloors(getIsoSceneStack(input)).map((floor) => getIsoColumnSpace(input, floor));
+}
+
+/** Ground field of one floor, stretched up to its highest column top. */
+function getRaisedFloorBounds(
+  input: IsoSceneInput,
+  heights: IsoHeightMap,
+  floor: number,
+  stack: IsoStack,
+): IsoRect {
+  const ground = liftRect(getFieldBounds(input.gridSize, input.cellSize), floor, stack);
+  const tops = getGridCells(input.gridSize).map((cell) => {
+    const level = getCellHeight(heights, cell.col, cell.row, floor);
+    return liftPoint(projectIso(cell.col, cell.row, input.cellSize), floor, stack).y
+      - level * input.levelHeight;
+  });
+  const top = Math.min(ground.y, ...tops);
+  return { ...ground, height: ground.y + ground.height - top, y: top };
+}
+
+function getRaisedFieldBounds(
+  input: IsoSceneInput,
+  heights: IsoHeightMap,
+  stack: IsoStack,
+): IsoRect {
+  return (
+    unionRects(
+      getIsoFloors(stack).map((floor) => getRaisedFloorBounds(input, heights, floor, stack)),
+    ) ?? getFieldBounds(input.gridSize, input.cellSize)
   );
-  const items = sortPlacementsForDrawing(renderable).map((placement): IsoSceneItem => {
+}
+
+function buildFloorItems(
+  input: IsoSceneInput,
+  placements: readonly IsoPlacement[],
+  stack: IsoStack,
+): IsoSceneItem[] {
+  return placements.map((placement): IsoSceneItem => {
     const record = input.objects[placement.objectId]!;
+    const space = getIsoColumnSpace(input, placement.floor);
     const levels = Math.max(0, ...getFootprintHeights(placement, input.heights));
     const elevation = levels * input.levelHeight;
+    const imageRect = getPlacementImageRect(placement, record, input.cellSize, elevation);
     return {
       diamond: getRaisedFootprintDiamond(
         placement.col,
@@ -73,22 +102,65 @@ export function buildIsoSceneModel(input: IsoSceneInput): IsoSceneModel {
         placement.footprint,
         levels,
         space,
-      ),
+      ).map((point) => liftPoint(point, placement.floor, stack)),
       elevation,
-      imageRect: getPlacementImageRect(placement, record, input.cellSize, elevation),
+      imageRect: imageRect ? liftRect(imageRect, placement.floor, stack) : null,
       placement,
       record,
     };
   });
+}
+
+/**
+ * Pure scene layout: pieces stand on top of their columns (a piece on uneven
+ * columns, left over from later height edits, stands on the highest one).
+ * Floors are laid out from the ground up, so a higher floor overlaps the one
+ * below it exactly as it is drawn.
+ */
+export function buildIsoSceneModel(input: IsoSceneInput): IsoSceneModel {
+  const stack = getIsoSceneStack(input);
+  const floors = getIsoFloors(stack);
+  const guides = floors.map((floor) =>
+    getColumnGuide(getIsoColumnSpace(input, floor), input.hideHiddenLines),
+  );
+  const guide = guides.flatMap(({ segments }, floor) =>
+    segments.map((segment) => liftSegment(segment, floor, stack)),
+  );
+  const guideFaces = guides.flatMap(({ faces }, floor) =>
+    faces.map((face) => liftFace(face, floor, stack)),
+  );
+  const ground = getFieldBounds(input.gridSize, input.cellSize);
+  const field =
+    unionRects([
+      ...floors.map((floor) => liftRect(ground, floor, stack)),
+      getPointsBounds(guide.flatMap((segment) => [segment.from, segment.to])),
+    ]) ?? ground;
+  const range = input.heightRange;
+  const frameField = range
+    ? (unionRects([field, getRaisedFieldBounds(input, range.high, stack)]) ?? field)
+    : field;
+  const renderable = filterRenderablePlacements(
+    input.placements,
+    new Set(Object.keys(input.objects)),
+    input.gridSize,
+    stack.floors,
+  );
+  const items = buildFloorItems(input, sortPlacementsForDrawing(renderable), stack);
   const elevationIn = (heights: IsoHeightMap, placement: IsoPlacement) =>
     Math.max(0, ...getFootprintHeights(placement, heights)) * input.levelHeight;
+  const rectIn = (heights: IsoHeightMap, item: IsoSceneItem) => {
+    const rect = getPlacementImageRect(
+      item.placement,
+      item.record,
+      input.cellSize,
+      elevationIn(heights, item.placement),
+    );
+    return rect ? liftRect(rect, item.placement.floor, stack) : null;
+  };
   // While animating, each piece counts at its lowest and highest elevation of the loop.
   const pieceRects = items.flatMap((item) =>
     range
-      ? [
-          getPlacementImageRect(item.placement, item.record, input.cellSize, elevationIn(range.low, item.placement)),
-          getPlacementImageRect(item.placement, item.record, input.cellSize, elevationIn(range.high, item.placement)),
-        ]
+      ? [rectIn(range.low, item), rectIn(range.high, item)]
       : [item.imageRect ?? getPointsBounds(item.diamond)],
   );
   const content = input.showPieces ? unionRects(pieceRects) : null;

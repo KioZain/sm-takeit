@@ -20,6 +20,7 @@ function gridOf(preset: (typeof ISO_PRESETS)[number]) {
 function placementsOf(preset: (typeof ISO_PRESETS)[number]): IsoPlacement[] {
   return preset.placements.map((piece, index) => ({
     col: piece.col,
+    floor: piece.floor,
     footprint: piece.footprint,
     id: `${piece.objectName}@${piece.col},${piece.row}#${index}`,
     objectId: piece.objectName,
@@ -37,6 +38,12 @@ describe("baked presets", () => {
       "Большой сет (40)",
     ]);
     expect(new Set(ISO_PRESETS.map((preset) => preset.id)).size).toBe(ISO_PRESETS.length);
+  });
+
+  it("remembers the layout every preset was built in", () => {
+    ISO_PRESETS.forEach((preset) => {
+      expect(preset.values[ISO_TARGETS.gridMode], preset.name).toBe("classic");
+    });
   });
 
   it("shows the grid in every preset", () => {

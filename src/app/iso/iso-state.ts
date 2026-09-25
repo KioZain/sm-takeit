@@ -1,6 +1,7 @@
 import { getToolcraftTimelineLoopProgress, type ToolcraftCommand } from "@/toolcraft/runtime";
 
 import {
+  createPlacementId,
   filterRenderablePlacements,
   footprintFitsGrid,
   heightKey,
@@ -34,6 +35,13 @@ import {
   type IsoWaveEasing,
 } from "./iso-relief";
 import { buildIsoSceneModel } from "./iso-scene-model";
+import {
+  getIsoFloorOffset,
+  isIsoGridMode,
+  ISO_FLOOR_RANGE,
+  ISO_ZONE_RANGE,
+  type IsoGridMode,
+} from "./iso-stack";
 
 export const ISO_TARGETS = {
   background: "scene.background",
@@ -41,8 +49,11 @@ export const ISO_TARGETS = {
   commands: "field.commands",
   crop: "output.crop",
   gridCols: "grid.cols",
+  gridFloors: "grid.floors",
+  gridMode: "grid.mode",
   gridRows: "grid.rows",
   gridVisible: "grid.visible",
+  gridZone: "grid.zone",
   reliefEdits: "relief.edits",
   includeBackground: "export.includeBackground",
   includeGrid: "output.includeGrid",
@@ -91,8 +102,11 @@ export const ISO_DEFAULTS = {
   cellSize: 72,
   crop: "field" as IsoCropMode,
   gridCols: 6,
+  gridFloors: 3,
+  gridMode: "classic" as IsoGridMode,
   gridRows: 6,
   gridVisible: true,
+  gridZone: 3,
   includeBackground: false,
   includeGrid: false,
   /** One column level as a percentage of the cell width. */
@@ -176,7 +190,30 @@ function readGridCount(value: unknown, fallback: number): number {
 }
 
 /** Field size in cells along each axis. */
+/** Classic spreads one field on the ground; stacked repeats one zone upwards. */
+export function getIsoGridMode(values: IsoStateSource["values"]): IsoGridMode {
+  const mode = values[ISO_TARGETS.gridMode];
+  return isIsoGridMode(mode) ? mode : ISO_DEFAULTS.gridMode;
+}
+
+function readZoneSide(values: IsoStateSource["values"]): number {
+  const side = readGridCount(values[ISO_TARGETS.gridZone], ISO_DEFAULTS.gridZone);
+  return clamp(side, ISO_ZONE_RANGE.min, ISO_ZONE_RANGE.max);
+}
+
+/** Floors drawn one above another; a classic field always has one. */
+export function getIsoFloorCount(values: IsoStateSource["values"]): number {
+  if (getIsoGridMode(values) !== "stacked") return 1;
+  const floors = readGridCount(values[ISO_TARGETS.gridFloors], ISO_DEFAULTS.gridFloors);
+  return clamp(floors, ISO_FLOOR_RANGE.min, ISO_FLOOR_RANGE.max);
+}
+
+/** A stacked field is one square zone; a classic field keeps its own width and length. */
 export function getIsoGridSize(values: IsoStateSource["values"]): IsoGridSize {
+  if (getIsoGridMode(values) === "stacked") {
+    const side = readZoneSide(values);
+    return { cols: side, rows: side };
+  }
   return {
     cols: readGridCount(values[ISO_TARGETS.gridCols], ISO_DEFAULTS.gridCols),
     rows: readGridCount(values[ISO_TARGETS.gridRows], ISO_DEFAULTS.gridRows),
@@ -303,12 +340,14 @@ export function readIsoPlacements(values: IsoStateSource["values"]): IsoPlacemen
     }
     const col = finiteNumber(item.col, Number.NaN);
     const row = finiteNumber(item.row, Number.NaN);
-    if (!Number.isInteger(col) || !Number.isInteger(row)) return [];
+    const floor = finiteNumber(item.floor, 0);
+    if (!Number.isInteger(col) || !Number.isInteger(row) || !Number.isInteger(floor)) return [];
     return [
       {
         col,
+        floor: Math.max(0, floor),
         footprint: item.footprint,
-        id: typeof item.id === "string" ? item.id : `${item.objectId}@${col},${row}`,
+        id: typeof item.id === "string" ? item.id : createPlacementId(item.objectId, col, row, floor),
         objectId: item.objectId,
         row,
       },
@@ -322,6 +361,7 @@ export function getIsoActivePlacements(state: IsoStateSource): IsoPlacement[] {
     readIsoPlacements(state.values),
     new Set(getIsoLibraryAssets(state.mediaAssets).map((asset) => asset.id)),
     getIsoGridSize(state.values),
+    getIsoFloorCount(state.values),
   );
 }
 
@@ -332,10 +372,12 @@ export function getIsoActivePlacements(state: IsoStateSource): IsoPlacement[] {
 export function getIsoOffGridPlacements(state: IsoStateSource): IsoPlacement[] {
   const objectIds = new Set(getIsoLibraryAssets(state.mediaAssets).map((asset) => asset.id));
   const gridSize = getIsoGridSize(state.values);
+  const floors = getIsoFloorCount(state.values);
   return readIsoPlacements(state.values).filter(
     (placement) =>
       objectIds.has(placement.objectId) &&
-      !footprintFitsGrid(placement.col, placement.row, placement.footprint, gridSize),
+      (placement.floor >= floors ||
+        !footprintFitsGrid(placement.col, placement.row, placement.footprint, gridSize)),
   );
 }
 
@@ -387,23 +429,53 @@ export type IsoReliefLayers = Readonly<{
 }>;
 
 /** The live pattern, the hand edits over it, and the resulting column heights. */
+/**
+ * Levels that fit between two floors. A column taller than the gap would grow
+ * through the floor above, so a stacked field caps the peak instead.
+ */
+function capReliefToFloor(
+  settings: IsoReliefSettings,
+  state: IsoStateSource,
+  gridSize: IsoGridSize,
+  floors: number,
+): IsoReliefSettings {
+  if (floors < 2) return settings;
+  const cellSize = readIsoCellSize(state.values);
+  const levelHeight = (cellSize * readIsoLevelPercent(state.values)) / 100;
+  const fitting = Math.max(1, Math.floor(getIsoFloorOffset(gridSize, cellSize) / levelHeight));
+  return settings.max <= fitting ? settings : { ...settings, max: fitting };
+}
+
 export function getIsoReliefLayers(state: IsoStateSource): IsoReliefLayers {
   const gridSize = getIsoGridSize(state.values);
-  const settings = readIsoReliefSettings(state);
-  const pattern = getPatternHeights(settings, gridSize);
+  const floors = getIsoFloorCount(state.values);
+  const settings = capReliefToFloor(readIsoReliefSettings(state), state, gridSize, floors);
+  const pattern = getPatternHeights(settings, gridSize, floors);
   const edits = readIsoReliefEdits(state.values);
   const placements = getIsoActivePlacements(state);
   // A wave crest sweeps every column between the ground and the peak height.
   const range = settings.wave
     ? {
-        high: composeReliefHeights(getUniformHeights(settings.max, gridSize), edits, gridSize, placements),
-        low: composeReliefHeights(getUniformHeights(0, gridSize), edits, gridSize, placements),
+        high: composeReliefHeights(
+          getUniformHeights(settings.max, gridSize, floors),
+          edits,
+          gridSize,
+          placements,
+          floors,
+        ),
+        low: composeReliefHeights(
+          getUniformHeights(0, gridSize, floors),
+          edits,
+          gridSize,
+          placements,
+          floors,
+        ),
       }
     : null;
   return {
     animated: settings.wave !== null,
     edits,
-    heights: composeReliefHeights(pattern, edits, gridSize, placements),
+    heights: composeReliefHeights(pattern, edits, gridSize, placements, floors),
     pattern,
     range,
   };
@@ -475,19 +547,28 @@ export function readIsoGridVisible(values: IsoStateSource["values"]): boolean {
   return values[ISO_TARGETS.gridVisible] !== false;
 }
 
-export function readIsoSceneInput(state: IsoStateSource): IsoSceneInput {
-  const { values } = state;
-  const cellSize = clamp(finiteNumber(values[ISO_TARGETS.cellSize], ISO_DEFAULTS.cellSize), 8, 1024);
-  const levelPercent = clamp(
+export function readIsoCellSize(values: IsoStateSource["values"]): number {
+  return clamp(finiteNumber(values[ISO_TARGETS.cellSize], ISO_DEFAULTS.cellSize), 8, 1024);
+}
+
+export function readIsoLevelPercent(values: IsoStateSource["values"]): number {
+  return clamp(
     finiteNumber(values[ISO_TARGETS.levelHeight], ISO_DEFAULTS.levelHeight),
     ISO_LEVEL_HEIGHT_RANGE.min,
     ISO_LEVEL_HEIGHT_RANGE.max,
   );
+}
+
+export function readIsoSceneInput(state: IsoStateSource): IsoSceneInput {
+  const { values } = state;
+  const cellSize = readIsoCellSize(values);
+  const levelPercent = readIsoLevelPercent(values);
   const objects: Record<string, IsoObjectRecord> = {};
   for (const object of getIsoLibraryObjects(state)) objects[object.id] = object.record;
   return {
     cellSize,
     crop: readCropMode(values[ISO_TARGETS.crop]),
+    floors: getIsoFloorCount(values),
     gridSize: getIsoGridSize(values),
     ...pickHeights(getIsoReliefLayers(state)),
     hideHiddenLines: ISO_SOLID_COLUMNS,

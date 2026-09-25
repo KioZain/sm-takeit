@@ -12,6 +12,7 @@ import {
   type IsoHeightMap,
   type IsoPlacement,
 } from "./iso-geometry";
+import type { IsoStackCell } from "./iso-stack";
 
 export { getGridCells };
 
@@ -101,7 +102,32 @@ type PatternGeometry =
   | Readonly<{ kind: "flat" }>;
 
 /** How far a cell is from the pattern's peak, or which alternate set it belongs to. */
-function getPatternGeometry(settings: IsoReliefSettings, cell: IsoCell, gridSize: IsoGridSize): PatternGeometry {
+/**
+ * A stacked field is one tower, so a running wave keeps climbing instead of
+ * restarting on every floor. A static pattern repeats on each floor unchanged.
+ */
+function alongTower(
+  geometry: PatternGeometry,
+  floor: number,
+  gridSize: IsoGridSize,
+): PatternGeometry {
+  if (floor === 0) return geometry;
+  const span = floor * Math.max(gridSize.cols, gridSize.rows);
+  switch (geometry.kind) {
+    case "flat":
+      return geometry;
+    case "alternate":
+      return { ...geometry, raised: floor % 2 === 0 ? geometry.raised : !geometry.raised };
+    default:
+      return { ...geometry, distance: geometry.distance + span };
+  }
+}
+
+function getPatternGeometry(
+  settings: IsoReliefSettings,
+  cell: IsoStackCell,
+  gridSize: IsoGridSize,
+): PatternGeometry {
   // The far corner cell; on a rectangular field its col and row differ.
   const last = { col: gridSize.cols - 1, row: gridSize.rows - 1 };
   switch (settings.pattern) {
@@ -176,10 +202,16 @@ function getWaveLevel(geometry: PatternGeometry, max: number, wave: IsoReliefWav
 }
 
 /** Pattern height of one cell in levels (whole levels unless a wave is running). */
-export function getReliefLevel(settings: IsoReliefSettings, cell: IsoCell, gridSize: IsoGridSize): number {
+export function getReliefLevel(
+  settings: IsoReliefSettings,
+  cell: IsoStackCell,
+  gridSize: IsoGridSize,
+): number {
   const max = Math.max(0, Math.round(settings.max));
   const geometry = getPatternGeometry(settings, cell, gridSize);
-  if (settings.wave) return getWaveLevel(geometry, max, settings.wave);
+  if (settings.wave) {
+    return getWaveLevel(alongTower(geometry, cell.floor, gridSize), max, settings.wave);
+  }
   switch (geometry.kind) {
     case "flat":
       return 0;
@@ -212,24 +244,49 @@ export function levelFootprints(
     })
     .reduce((current, placement) => {
       const cells = getPlacementCells(placement);
-      const highest = Math.max(...cells.map((cell) => getCellHeight(current, cell.col, cell.row)));
+      const highest = Math.max(
+        ...cells.map((cell) => getCellHeight(current, cell.col, cell.row, placement.floor)),
+      );
       return new Map([
         ...current,
-        ...cells.map((cell): [string, number] => [heightKey(cell.col, cell.row), highest]),
+        ...cells.map((cell): [string, number] => [
+          heightKey(cell.col, cell.row, placement.floor),
+          highest,
+        ]),
       ]);
     }, new Map(heights));
 }
 
 /** Every cell at one level, e.g. the trough or crest of a running wave. */
-export function getUniformHeights(level: number, gridSize: IsoGridSize): Map<string, number> {
-  return new Map(getGridCells(gridSize).map((cell): [string, number] => [heightKey(cell.col, cell.row), level]));
+/** Every cell of every floor, ground floor first. */
+export function getStackCells(gridSize: IsoGridSize, floors = 1): IsoStackCell[] {
+  return Array.from({ length: Math.max(1, floors) }, (_, floor) => floor).flatMap((floor) =>
+    getGridCells(gridSize).map((cell) => ({ ...cell, floor })),
+  );
+}
+
+export function getUniformHeights(
+  level: number,
+  gridSize: IsoGridSize,
+  floors = 1,
+): Map<string, number> {
+  return new Map(
+    getStackCells(gridSize, floors).map((cell): [string, number] => [
+      heightKey(cell.col, cell.row, cell.floor),
+      level,
+    ]),
+  );
 }
 
 /** Live pattern levels for every cell of the field. */
-export function getPatternHeights(settings: IsoReliefSettings, gridSize: IsoGridSize): Map<string, number> {
+export function getPatternHeights(
+  settings: IsoReliefSettings,
+  gridSize: IsoGridSize,
+  floors = 1,
+): Map<string, number> {
   return new Map(
-    getGridCells(gridSize).map((cell): [string, number] => [
-      heightKey(cell.col, cell.row),
+    getStackCells(gridSize, floors).map((cell): [string, number] => [
+      heightKey(cell.col, cell.row, cell.floor),
       getReliefLevel(settings, cell, gridSize),
     ]),
   );
@@ -244,11 +301,17 @@ export function composeReliefHeights(
   edits: IsoHeightMap,
   gridSize: IsoGridSize,
   placements: readonly IsoPlacement[],
+  floors = 1,
 ): Map<string, number> {
-  const composed = getGridCells(gridSize)
+  const composed = getStackCells(gridSize, floors)
     .map((cell): [string, number] => {
-      const level = getCellHeight(pattern, cell.col, cell.row) + getCellHeight(edits, cell.col, cell.row);
-      return [heightKey(cell.col, cell.row), Math.min(ISO_MAX_COLUMN_LEVELS, Math.max(0, level))];
+      const level =
+        getCellHeight(pattern, cell.col, cell.row, cell.floor) +
+        getCellHeight(edits, cell.col, cell.row, cell.floor);
+      return [
+        heightKey(cell.col, cell.row, cell.floor),
+        Math.min(ISO_MAX_COLUMN_LEVELS, Math.max(0, level)),
+      ];
     })
     .filter(([, level]) => level > 0);
   return levelFootprints(new Map(composed), placements);

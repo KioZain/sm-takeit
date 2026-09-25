@@ -33,6 +33,23 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
     entityId: "isometric-grid",
     finiteSelectors: [
       {
+        affectedTargets: [],
+        reason:
+          "The layout decides whether the field is one classic board with its own width and length, or one square zone repeated over a number of floors.",
+        role: "branch",
+        target: ISO_TARGETS.gridMode,
+      },
+      {
+        reason: "Zone size changes only the side of the square zone every floor repeats.",
+        role: "parameter",
+        target: ISO_TARGETS.gridZone,
+      },
+      {
+        reason: "Floors change only how many zones stand above each other.",
+        role: "parameter",
+        target: ISO_TARGETS.gridFloors,
+      },
+      {
         reason: "Width changes only the field's cell count along its right side.",
         role: "parameter",
         target: ISO_TARGETS.gridCols,
@@ -53,9 +70,18 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
         target: ISO_TARGETS.showPieces,
       },
     ],
-    groupingReason: "Width, length, and what the field shows belong together; cell size and level height are fixed under the hood.",
+    groupingReason:
+      "The layout and the size it takes — classic width and length or zone and floors — define the field together with what it shows.",
     id: "grid",
-    targets: [ISO_TARGETS.gridCols, ISO_TARGETS.gridRows, ISO_TARGETS.gridVisible, ISO_TARGETS.showPieces],
+    targets: [
+      ISO_TARGETS.gridMode,
+      ISO_TARGETS.gridZone,
+      ISO_TARGETS.gridFloors,
+      ISO_TARGETS.gridCols,
+      ISO_TARGETS.gridRows,
+      ISO_TARGETS.gridVisible,
+      ISO_TARGETS.showPieces,
+    ],
     title: "Сетка",
   },
   {

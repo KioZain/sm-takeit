@@ -44,7 +44,7 @@ describe("sushi set preset list", () => {
     expect(rows[0]!.preset.name).toBe(baked.preset.name);
     expect(rows[0]!.preset.values[ISO_TARGETS.gridCols]).toBe(3);
     expect(rows[0]!.preset.placements).toEqual([
-      { col: 2, footprint: "1x1", objectName: "maki", row: 1 },
+      { col: 2, floor: 0, footprint: "1x1", objectName: "maki", row: 1 },
     ]);
     expect(rows).toHaveLength(ISO_PRESETS.length);
   });

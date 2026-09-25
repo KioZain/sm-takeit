@@ -16,6 +16,7 @@ import {
   type IsoPoint,
 } from "./iso-geometry";
 import { toSvgPath } from "./iso-scene";
+import { liftPoint } from "./iso-stack";
 
 export type IsoOverlayTone = "hoverCell" | "hoverInvalid" | "hoverValid" | "selection" | "snapGuide";
 
@@ -41,8 +42,13 @@ export type IsoOverlayInput = Readonly<{
 }>;
 
 function columnTop(field: IsoFieldContext, cell: IsoCell): IsoPoint[] {
-  const levels = getCellHeight(field.space.heights, cell.col, cell.row);
+  const levels = getCellHeight(field.space.heights, cell.col, cell.row, field.floor);
   return getRaisedFootprintDiamond(cell.col, cell.row, "1x1", levels, field.space);
+}
+
+/** Overlay geometry is built on the active floor, then raised onto its tier. */
+function onFloor(field: IsoFieldContext, polygons: readonly IsoPoint[][]): IsoPoint[][] {
+  return polygons.map((points) => points.map((point) => liftPoint(point, field.floor, field.stack)));
 }
 
 function getPlaceHover(field: IsoFieldContext, cursor: IsoCell): IsoOverlayPath | null {
@@ -55,14 +61,18 @@ function getPlaceHover(field: IsoFieldContext, cursor: IsoCell): IsoOverlayPath 
     footprint,
     field.gridSize,
     getIsoPlacementHeights(field),
+    field.floor,
   ).ok;
   const levels = Math.max(
     0,
-    ...getFootprintHeights({ col: cursor.col, footprint, row: cursor.row }, field.space.heights),
+    ...getFootprintHeights(
+      { col: cursor.col, floor: field.floor, footprint, row: cursor.row },
+      field.space.heights,
+    ),
   );
   const outline = getRaisedFootprintDiamond(cursor.col, cursor.row, footprint, levels, field.space);
   return {
-    d: toSvgPath([outline]),
+    d: toSvgPath(onFloor(field, [outline])),
     hover: valid ? "valid" : "invalid",
     key: "hover",
     strokeWidth: 1.5,
@@ -93,7 +103,7 @@ function getHeightHover(
   const cells = gesture ? gesture.drag.cells : cursor ? startIsoHeightDrag(field, cursor).cells : [];
   if (cells.length === 0) return null;
   return {
-    d: toSvgPath(cells.map((cell) => columnTop(field, cell))),
+    d: toSvgPath(onFloor(field, cells.map((cell) => columnTop(field, cell)))),
     hover: "height",
     key: "hover",
     strokeWidth: 1.5,
@@ -112,7 +122,12 @@ function getToolHover(input: IsoOverlayInput): IsoOverlayPath | null {
       return getHeightHover(field, cursor, input.heightGesture);
     default:
       return cursor && !input.dragging
-        ? { d: toSvgPath([columnTop(field, cursor)]), key: "hover", strokeWidth: 1, tone: "hoverCell" }
+        ? {
+            d: toSvgPath(onFloor(field, [columnTop(field, cursor)])),
+            key: "hover",
+            strokeWidth: 1,
+            tone: "hoverCell",
+          }
         : null;
   }
 }
@@ -122,7 +137,7 @@ export function getIsoOverlayPaths(input: IsoOverlayInput): IsoOverlayPath[] {
   const { field, selection, snapGuides } = input;
   const selectionPath: IsoOverlayPath | null = selection
     ? {
-        d: toSvgPath(getIsoCellRectTops(selection, field.space)),
+        d: toSvgPath(onFloor(field, getIsoCellRectTops(selection, field.space))),
         key: "selection",
         selection: `${selection.col0},${selection.row0},${selection.col1},${selection.row1}`,
         strokeWidth: 1.5,
@@ -132,7 +147,7 @@ export function getIsoOverlayPaths(input: IsoOverlayInput): IsoOverlayPath[] {
   const guidePath: IsoOverlayPath | null =
     snapGuides.length > 0
       ? {
-          d: toSvgPath(snapGuides.map((cell) => columnTop(field, cell))),
+          d: toSvgPath(onFloor(field, snapGuides.map((cell) => columnTop(field, cell)))),
           key: "snap",
           snapGuides: snapGuides.length,
           strokeWidth: 1.5,

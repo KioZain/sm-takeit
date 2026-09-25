@@ -13,8 +13,9 @@ import { Button } from "@/toolcraft/ui";
 
 import {
   clampIsoCell,
-  getIsoCellAt,
   getIsoCellCommand,
+  getIsoStackCellAt,
+  withIsoFloor,
   getIsoHeightStepCommand,
   isSameIsoCell,
   moveIsoHeightDrag,
@@ -43,7 +44,7 @@ import {
   isoSceneLayoutPass,
 } from "./iso-pipeline";
 import { getIsoViewBox, IsoSceneLayers } from "./iso-scene";
-import { getIsoColumnSpace } from "./iso-scene-model";
+import { getIsoColumnSpaces, getIsoSceneStack } from "./iso-scene-model";
 import {
   buildIsoSceneModelFromState,
   createIsoLibraryCommand,
@@ -282,7 +283,10 @@ export function IsoCanvas(): React.JSX.Element | null {
       "grid.cellSize": values[ISO_TARGETS.cellSize],
       "grid.levelHeight": values[ISO_TARGETS.levelHeight],
       "grid.cols": values[ISO_TARGETS.gridCols],
+      "grid.floors": values[ISO_TARGETS.gridFloors],
+      "grid.mode": values[ISO_TARGETS.gridMode],
       "grid.rows": values[ISO_TARGETS.gridRows],
+      "grid.zone": values[ISO_TARGETS.gridZone],
       "library.files": libraryKey,
       "library.objects": values[ISO_TARGETS.libraryObjects],
       "output.crop": values[ISO_TARGETS.crop],
@@ -319,6 +323,7 @@ export function IsoCanvas(): React.JSX.Element | null {
   useIsoArtboardFit(model, input.crop);
 
   const [cursor, setCursor] = React.useState<IsoCell | null>(null);
+  const [cursorFloor, setCursorFloor] = React.useState(0);
   const [erasePoint, setErasePoint] = React.useState<IsoPoint | null>(null);
   const [drag, setDrag] = React.useState<IsoSelectDrag | null>(null);
   const [heightGesture, setHeightGesture] = React.useState<IsoHeightGesture | null>(null);
@@ -338,11 +343,15 @@ export function IsoCanvas(): React.JSX.Element | null {
 
   if (frame.kind !== "ready" || !model) return null;
 
-  const space = getIsoColumnSpace(input);
+  const stack = getIsoSceneStack(input);
+  const spaces = getIsoColumnSpaces(input);
+  const floor = Math.min(cursorFloor, spaces.length - 1);
+  const space = spaces[floor]!;
   const relief = getIsoReliefLayers(source);
   const field: IsoFieldContext = {
     active,
     cellSize: input.cellSize,
+    floor,
     gridSize: input.gridSize,
     model,
     offGrid: getIsoOffGridPlacements(source),
@@ -350,6 +359,8 @@ export function IsoCanvas(): React.JSX.Element | null {
     relief,
     selection,
     space,
+    spaces,
+    stack,
     tool,
   };
 
@@ -373,8 +384,11 @@ export function IsoCanvas(): React.JSX.Element | null {
     if (event.button !== 0) return;
     event.preventDefault();
     const point = pointFromEvent(event);
-    const cell = getIsoCellAt(field, point);
+    const hit = getIsoStackCellAt(field, point);
+    const cell = hit?.cell ?? null;
+    const target = withIsoFloor(field, hit?.floor ?? floor);
     setCursor(cell);
+    setCursorFloor(target.floor);
     if (tool === "select") {
       if (!cell) {
         if (selection) dispatch(createIsoSelectionCommand(null));
@@ -389,7 +403,7 @@ export function IsoCanvas(): React.JSX.Element | null {
       const boxHeight = event.currentTarget.getBoundingClientRect().height;
       event.currentTarget.setPointerCapture(event.pointerId);
       setHeightGesture({
-        drag: startIsoHeightDrag(field, cell),
+        drag: startIsoHeightDrag(target, cell),
         group: `iso-height-${event.pointerId}-${Math.round(event.timeStamp)}`,
         pointerId: event.pointerId,
         startY: event.clientY,
@@ -397,7 +411,7 @@ export function IsoCanvas(): React.JSX.Element | null {
       });
       return;
     }
-    const command = getIsoCellCommand(field, cell, point);
+    const command = getIsoCellCommand(target, cell, point);
     if (command) dispatch(command);
   };
 
@@ -413,9 +427,11 @@ export function IsoCanvas(): React.JSX.Element | null {
       return;
     }
     const point = pointFromEvent(event);
-    const cell = getIsoCellAt(field, point);
+    const hover = getIsoStackCellAt(field, point);
+    const cell = hover?.cell ?? null;
     const clamped = clampIsoCell(field, point);
     setCursor((previous) => (isSameIsoCell(previous, cell) ? previous : cell));
+    setCursorFloor((previous) => hover?.floor ?? previous);
     setErasePoint(tool === "erase" ? point : null);
     setDrag((current) => moveIsoSelectDrag(current, pointerId, clamped));
   };

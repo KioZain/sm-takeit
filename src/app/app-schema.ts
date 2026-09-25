@@ -10,6 +10,7 @@ import {
 
 import appDefaults from "./app-defaults.json" with { type: "json" };
 import { ISO_EMPTY_SAVED_PRESETS } from "./iso/iso-saved-presets";
+import { ISO_FLOOR_RANGE, ISO_ZONE_RANGE } from "./iso/iso-stack";
 import { appIdentity } from "./app-identity";
 import {
   isoCompositionControlType,
@@ -70,6 +71,14 @@ const usesWaveSlope = {
     { oneOf: SLOPE_PATTERNS, target: ISO_TARGETS.reliefPattern },
     { equals: true, target: ISO_TARGETS.reliefWave },
   ],
+  mode: "conditional",
+} as const;
+const isClassicGrid = {
+  all: [{ equals: "classic", target: ISO_TARGETS.gridMode }],
+  mode: "conditional",
+} as const;
+const isStackedGrid = {
+  all: [{ equals: "stacked", target: ISO_TARGETS.gridMode }],
   mode: "conditional",
 } as const;
 const cropsToFrame = {
@@ -136,8 +145,56 @@ export const appSchema = defineToolcraft({
           },
           {
             controls: {
-              cols: {
+              mode: {
                 applicability: always,
+                defaultValue: ISO_DEFAULTS.gridMode,
+                description:
+                  "Классическая раскладывает одно поле по земле. Стопка повторяет одну зону вверх: набор растёт в высоту, а не вширь.",
+                label: "Раскладка",
+                options: [
+                  { label: "Классическая", value: "classic" },
+                  { label: "Стопка", value: "stacked" },
+                ],
+                orderRole: "mode",
+                performanceRole: "responsiveness",
+                target: ISO_TARGETS.gridMode,
+                type: "tabs",
+              } satisfies ToolcraftControlSchema,
+              zone: {
+                applicability: isStackedGrid,
+                defaultValue: ISO_DEFAULTS.gridZone,
+                description: "Сторона квадратной зоны. Правило одно на все этажи: либо 2×2, либо 3×3.",
+                label: "Зона",
+                max: ISO_ZONE_RANGE.max,
+                min: ISO_ZONE_RANGE.min,
+                orderRole: "primary",
+                performanceRole: "responsiveness",
+                sliderValueKind: "discrete",
+                step: 1,
+                target: ISO_TARGETS.gridZone,
+                type: "slider",
+                unit: "кл.",
+                variant: "discrete",
+              } satisfies ToolcraftControlSchema,
+              floors: {
+                applicability: isStackedGrid,
+                defaultValue: ISO_DEFAULTS.gridFloors,
+                description:
+                  "Сколько зон стоит одна над другой. Соседние перекрываются ровно наполовину, поэтому их края пересекаются на стыке.",
+                label: "Этажей",
+                max: ISO_FLOOR_RANGE.max,
+                min: ISO_FLOOR_RANGE.min,
+                orderRole: "primary",
+                performanceRole: "responsiveness",
+                sliderValueKind: "discrete",
+                step: 1,
+                target: ISO_TARGETS.gridFloors,
+                type: "slider",
+                unit: "эт.",
+                variant: "discrete",
+              } satisfies ToolcraftControlSchema,
+              cols: {
+                applicability: isClassicGrid,
                 defaultValue: ISO_DEFAULTS.gridCols,
                 description:
                   "Клеток вдоль правой стороны поля (↘), от 1 до 8. Роллы и высоты за краем сохраняются и возвращаются, когда поле растёт.",
@@ -154,7 +211,7 @@ export const appSchema = defineToolcraft({
                 variant: "discrete",
               } satisfies ToolcraftControlSchema,
               rows: {
-                applicability: always,
+                applicability: isClassicGrid,
                 defaultValue: ISO_DEFAULTS.gridRows,
                 description:
                   "Клеток вдоль левой стороны поля (↙), от 1 до 8. Роллы и высоты за краем сохраняются и возвращаются, когда поле растёт.",

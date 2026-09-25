@@ -60,8 +60,8 @@ describe("sushi set saved presets", () => {
     expect(preset.values[ISO_TARGETS.reliefPattern]).toBe("corner-rings");
     expect(preset.objects.map((object) => object.name)).toEqual(["maki", "nigiri"]);
     expect(preset.placements).toEqual([
-      { col: 1, footprint: "1x1", objectName: "maki", row: 2 },
-      { col: 0, footprint: "2x2", objectName: "nigiri", row: 0 },
+      { col: 1, floor: 0, footprint: "1x1", objectName: "maki", row: 2 },
+      { col: 0, floor: 0, footprint: "2x2", objectName: "nigiri", row: 0 },
     ]);
   });
 
@@ -87,7 +87,7 @@ describe("sushi set saved presets", () => {
     const values = applied(command);
     expect(values[ISO_TARGETS.gridCols]).toBe(5);
     expect(values[ISO_TARGETS.placements]).toEqual({
-      items: [{ col: 1, footprint: "1x1", id: "maki-2@1,2", objectId: "maki-2", row: 2 }],
+      items: [{ col: 1, floor: 0, footprint: "1x1", id: "maki-2@1,2", objectId: "maki-2", row: 2 }],
     });
     const library = values[ISO_TARGETS.libraryObjects] as { activeId: string; items: object };
     expect(Object.keys(library.items)).toEqual(["maki-2", "nigiri-2"]);
@@ -109,7 +109,7 @@ describe("sushi set saved presets", () => {
     expect(getIsoSavedPresetMatch(createState(), preset)).toEqual({ matched: 2, missing: [] });
     const values = applied(getIsoSavedPresetCommand(onlyMaki, preset));
     expect(values[ISO_TARGETS.placements]).toEqual({
-      items: [{ col: 1, footprint: "1x1", id: "maki-2@1,2", objectId: "maki-2", row: 2 }],
+      items: [{ col: 1, floor: 0, footprint: "1x1", id: "maki-2@1,2", objectId: "maki-2", row: 2 }],
     });
   });
 

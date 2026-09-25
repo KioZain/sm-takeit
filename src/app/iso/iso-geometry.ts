@@ -29,6 +29,8 @@ export type IsoCell = Readonly<{ col: number; row: number }>;
 /** `col`/`row` address the far corner cell (smallest col + row) of the footprint. */
 export type IsoPlacement = Readonly<{
   col: number;
+  /** Stacked floor the piece stands on; a classic field only has floor 0. */
+  floor: number;
   footprint: IsoFootprint;
   id: string;
   objectId: string;
@@ -59,6 +61,8 @@ export type IsoColumnFace = Readonly<{ points: readonly IsoPoint[]; side: "left"
 export type IsoSceneInput = Readonly<{
   cellSize: number;
   crop: IsoCropMode;
+  /** Stacked floors drawn one above another; a classic field has one. */
+  floors: number;
   gridSize: IsoGridSize;
   /**
    * Lowest and highest heights each column reaches over an animation loop. When
@@ -109,12 +113,17 @@ export type IsoSceneModel = Readonly<{
 
 const HEIGHT_TOLERANCE = 1e-3;
 
-export function heightKey(col: number, row: number): string {
-  return `${col},${row}`;
+export function heightKey(col: number, row: number, floor = 0): string {
+  return floor === 0 ? `${col},${row}` : `${col},${row}@${floor}`;
 }
 
-export function getCellHeight(heights: IsoHeightMap, col: number, row: number): number {
-  return heights.get(heightKey(col, row)) ?? 0;
+export function getCellHeight(
+  heights: IsoHeightMap,
+  col: number,
+  row: number,
+  floor = 0,
+): number {
+  return heights.get(heightKey(col, row, floor)) ?? 0;
 }
 
 export function isSameHeight(left: number, right: number): boolean {
@@ -245,14 +254,16 @@ export function getPlacementCells(placement: Pick<IsoPlacement, "col" | "footpri
 
 /** Heights of the footprint's cells, in levels. */
 export function getFootprintHeights(
-  placement: Pick<IsoPlacement, "col" | "footprint" | "row">,
+  placement: Pick<IsoPlacement, "col" | "floor" | "footprint" | "row">,
   heights: IsoHeightMap,
 ): number[] {
-  return getPlacementCells(placement).map((cell) => getCellHeight(heights, cell.col, cell.row));
+  return getPlacementCells(placement).map((cell) =>
+    getCellHeight(heights, cell.col, cell.row, placement.floor),
+  );
 }
 
-function cellKey(col: number, row: number): string {
-  return `${col}:${row}`;
+function cellKey(col: number, row: number, floor: number): string {
+  return `${floor}:${col}:${row}`;
 }
 
 export function footprintFitsGrid(
@@ -265,8 +276,13 @@ export function footprintFitsGrid(
   return col >= 0 && row >= 0 && col + cols <= gridSize.cols && row + rows <= gridSize.rows;
 }
 
-export function createPlacementId(objectId: string, col: number, row: number): string {
-  return `${objectId}@${col},${row}`;
+export function createPlacementId(
+  objectId: string,
+  col: number,
+  row: number,
+  floor = 0,
+): string {
+  return floor === 0 ? `${objectId}@${col},${row}` : `${objectId}@${col},${row}#${floor}`;
 }
 
 /**
@@ -277,6 +293,7 @@ export function filterRenderablePlacements(
   placements: readonly IsoPlacement[],
   objectIds: ReadonlySet<string>,
   gridSize: IsoGridSize,
+  floors = 1,
 ): IsoPlacement[] {
   type Accepted = Readonly<{ occupied: ReadonlySet<string>; result: readonly IsoPlacement[] }>;
   const initial: Accepted = { occupied: new Set<string>(), result: [] };
@@ -285,10 +302,14 @@ export function filterRenderablePlacements(
       .filter(
         (placement) =>
           objectIds.has(placement.objectId) &&
+          placement.floor >= 0 &&
+          placement.floor < floors &&
           footprintFitsGrid(placement.col, placement.row, placement.footprint, gridSize),
       )
       .reduce((accepted: Accepted, placement): Accepted => {
-        const keys = getPlacementCells(placement).map((cell) => cellKey(cell.col, cell.row));
+        const keys = getPlacementCells(placement).map((cell) =>
+          cellKey(cell.col, cell.row, placement.floor),
+        );
         return keys.some((key) => accepted.occupied.has(key))
           ? accepted
           : {
@@ -310,21 +331,22 @@ export function checkPlacement(
   footprint: IsoFootprint,
   gridSize: IsoGridSize,
   heights: IsoHeightMap = new Map(),
+  floor = 0,
 ): IsoPlacementCheck {
   if (!footprintFitsGrid(col, row, footprint, gridSize)) {
     return { ok: false, reason: "outside" };
   }
-  const [first = 0, ...rest] = getFootprintHeights({ col, footprint, row }, heights);
+  const [first = 0, ...rest] = getFootprintHeights({ col, floor, footprint, row }, heights);
   if (rest.some((height) => !isSameHeight(height, first))) {
     return { ok: false, reason: "uneven" };
   }
   const occupied = new Set(
     placements.flatMap((placement) =>
-      getPlacementCells(placement).map((cell) => cellKey(cell.col, cell.row)),
+      getPlacementCells(placement).map((cell) => cellKey(cell.col, cell.row, placement.floor)),
     ),
   );
   const blocked = getPlacementCells({ col, footprint, row }).some((cell) =>
-    occupied.has(cellKey(cell.col, cell.row)),
+    occupied.has(cellKey(cell.col, cell.row, floor)),
   );
   return blocked ? { ok: false, reason: "occupied" } : { ok: true };
 }
@@ -337,11 +359,12 @@ export function placeObject(
   footprint: IsoFootprint,
   gridSize: IsoGridSize,
   heights?: IsoHeightMap,
+  floor = 0,
 ): IsoPlacement[] | null {
-  if (!checkPlacement(placements, col, row, footprint, gridSize, heights).ok) return null;
+  if (!checkPlacement(placements, col, row, footprint, gridSize, heights, floor).ok) return null;
   return [
     ...placements,
-    { col, footprint, id: createPlacementId(objectId, col, row), objectId, row },
+    { col, floor, footprint, id: createPlacementId(objectId, col, row, floor), objectId, row },
   ];
 }
 
@@ -380,17 +403,22 @@ export function fillCellRect(
   footprint: IsoFootprint,
   gridSize: IsoGridSize,
   heights?: IsoHeightMap,
+  floor = 0,
 ): IsoPlacement[] {
   const bounded = clampCellRect(rect, gridSize);
   if (!bounded) return [...placements];
   const { cols, rows } = getFootprintSpan(footprint);
-  let next = [...placements];
-  for (let row = bounded.row0; row + rows - 1 <= bounded.row1; row += 1) {
-    for (let col = bounded.col0; col + cols - 1 <= bounded.col1; col += 1) {
-      next = placeObject(next, objectId, col, row, footprint, gridSize, heights) ?? next;
-    }
-  }
-  return next;
+  const span = (from: number, to: number, size: number) =>
+    Array.from({ length: Math.max(0, to - from - size + 2) }, (_, index) => from + index);
+  const starts = span(bounded.row0, bounded.row1, rows).flatMap((row) =>
+    span(bounded.col0, bounded.col1, cols).map((col) => ({ col, row })),
+  );
+  return starts.reduce(
+    (current, start) =>
+      placeObject(current, objectId, start.col, start.row, footprint, gridSize, heights, floor) ??
+      current,
+    [...placements],
+  );
 }
 
 function placementIntersectsRect(placement: IsoPlacement, rect: IsoCellRect): boolean {
@@ -406,18 +434,24 @@ function placementIntersectsRect(placement: IsoPlacement, rect: IsoCellRect): bo
 export function eraseCellRect(
   placements: readonly IsoPlacement[],
   rect: IsoCellRect,
+  floor = 0,
 ): IsoPlacement[] {
-  return placements.filter((placement) => !placementIntersectsRect(placement, rect));
+  return placements.filter(
+    (placement) => placement.floor !== floor || !placementIntersectsRect(placement, rect),
+  );
 }
 
 export function findPlacementAtCell(
   placements: readonly IsoPlacement[],
   col: number,
   row: number,
+  floor = 0,
 ): IsoPlacement | null {
   return (
-    placements.find((placement) =>
-      placementIntersectsRect(placement, { col0: col, col1: col, row0: row, row1: row }),
+    placements.find(
+      (placement) =>
+        placement.floor === floor &&
+        placementIntersectsRect(placement, { col0: col, col1: col, row0: row, row1: row }),
     ) ?? null
   );
 }
@@ -428,6 +462,7 @@ function spansOverlap(start0: number, length0: number, start1: number, length1: 
 
 /** True when `back` must be painted before `front` to overlap correctly. */
 function isBehind(back: IsoPlacement, front: IsoPlacement): boolean {
+  if (back.floor !== front.floor) return back.floor < front.floor;
   const b = getFootprintSpan(back.footprint);
   const f = getFootprintSpan(front.footprint);
   return (
@@ -438,6 +473,7 @@ function isBehind(back: IsoPlacement, front: IsoPlacement): boolean {
 
 function compareDrawKey(left: IsoPlacement, right: IsoPlacement): number {
   return (
+    left.floor - right.floor ||
     left.col + left.row - (right.col + right.row) ||
     left.col - right.col ||
     (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)

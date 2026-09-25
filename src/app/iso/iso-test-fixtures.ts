@@ -11,7 +11,7 @@ import { handleIsoPanelAction } from "./iso-actions";
 import { isoRasterFrameRenderer } from "./iso-export";
 import type { IsoFieldContext } from "./iso-field";
 import type { IsoObjectRecord, IsoPlacement } from "./iso-geometry";
-import { getIsoColumnSpace } from "./iso-scene-model";
+import { getIsoColumnSpaces, getIsoSceneStack } from "./iso-scene-model";
 import {
   buildIsoSceneModelFromState,
   getIsoActiveObjectId,
@@ -47,8 +47,14 @@ export function record(name: string, patch: Partial<IsoObjectRecord> = {}): IsoO
   return { anchor: { x: 0.5, y: 0.9 }, footprint: "1x1", name, scale: 1, size, ...patch };
 }
 
-export function at(objectId: string, col: number, row: number, footprint: IsoPlacement["footprint"] = "1x1"): IsoPlacement {
-  return { col, footprint, id: `${objectId}@${col},${row}`, objectId, row };
+export function at(
+  objectId: string,
+  col: number,
+  row: number,
+  footprint: IsoPlacement["footprint"] = "1x1",
+  floor = 0,
+): IsoPlacement {
+  return { col, floor, footprint, id: `${objectId}@${col},${row}`, objectId, row };
 }
 
 export function createState(
@@ -82,19 +88,26 @@ export function withPlacements(items: readonly IsoPlacement[], values: Record<st
   return createState({ [ISO_TARGETS.placements]: { items }, ...values });
 }
 
-export function fieldContext(state: ReturnType<typeof createState>): IsoFieldContext {
+export function fieldContext(
+  state: ReturnType<typeof createState>,
+  floor = 0,
+): IsoFieldContext {
   const activeId = getIsoActiveObjectId(state);
   const input = readIsoSceneInput(state);
+  const spaces = getIsoColumnSpaces(input);
   return {
     active: getIsoLibraryObjects(state).find((object) => object.id === activeId) ?? null,
     cellSize: input.cellSize,
+    floor,
     gridSize: input.gridSize,
     model: buildIsoSceneModelFromState(state),
     offGrid: getIsoOffGridPlacements(state),
     placements: getIsoActivePlacements(state),
     relief: getIsoReliefLayers(state),
     selection: null,
-    space: getIsoColumnSpace(input),
+    space: spaces[floor] ?? spaces[0]!,
+    spaces,
+    stack: getIsoSceneStack(input),
     tool: readIsoTool(state.values),
   };
 }

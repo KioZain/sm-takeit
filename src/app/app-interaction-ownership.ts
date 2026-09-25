@@ -67,6 +67,37 @@ export const appInteractionOwnership: readonly ToolcraftInteractionOwnershipEntr
   },
   {
     alternative: {
+      reason: "A layout switch has no spatial handle on the field itself.",
+      surface: "canvas",
+    },
+    capability: "structured-selection",
+    evidence: {
+      detail: "The request asks for the two layouts to be tabs in the panel.",
+      source: "user-request",
+    },
+    id: "grid-layout",
+    reason: "The panel owns the layout choice and the size the field takes in it.",
+    surface: "panel",
+    target: ISO_TARGETS.gridMode,
+  },
+  {
+    alternative: {
+      reason: "Dragging the tower on the canvas would compete with placing pieces.",
+      surface: "canvas",
+    },
+    capability: "precise-value-entry",
+    evidence: {
+      detail: "The request asks for a floors slider beside the zone size.",
+      source: "user-request",
+    },
+    id: "grid-floors",
+    reason: "The panel owns how many zones stand above each other.",
+    selectionScope: { mode: "global" as const },
+    surface: "panel",
+    target: ISO_TARGETS.gridFloors,
+  },
+  {
+    alternative: {
       reason: "Naming and listing saved setups has no spatial meaning on the field.",
       surface: "canvas",
     },

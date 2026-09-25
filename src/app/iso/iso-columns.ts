@@ -17,6 +17,8 @@ import { clipPolygon, clipSegment } from "./iso-occlusion";
 /** Field geometry needed to place raised columns on screen. */
 export type IsoColumnSpace = Readonly<{
   cellSize: number;
+  /** Stacked floor this space describes; a classic field only has floor 0. */
+  floor: number;
   gridSize: IsoGridSize;
   heights: IsoHeightMap;
   /** Screen height of one level in px. */
@@ -31,7 +33,7 @@ function lifted(col: number, row: number, levels: number, space: IsoColumnSpace)
 /** Height of a cell, or 0 outside the grid (the ground). */
 function heightOrGround(space: IsoColumnSpace, col: number, row: number): number {
   return col >= 0 && row >= 0 && col < space.gridSize.cols && row < space.gridSize.rows
-    ? getCellHeight(space.heights, col, row)
+    ? getCellHeight(space.heights, col, row, space.floor)
     : 0;
 }
 
@@ -54,7 +56,7 @@ export function getRaisedFootprintDiamond(
 
 /** Screen outline of one column, from its top down to the ground. */
 export function getColumnSilhouette(col: number, row: number, space: IsoColumnSpace): IsoPoint[] {
-  const levels = getCellHeight(space.heights, col, row);
+  const levels = getCellHeight(space.heights, col, row, space.floor);
   return [
     lifted(col, row, levels, space),
     lifted(col + 1, row, levels, space),
@@ -148,7 +150,7 @@ type CellGuide = Readonly<{
 /** Top edges and front faces owned by one cell. */
 function getCellGuide(space: IsoColumnSpace, cell: IsoCell): CellGuide {
   const { col, row } = cell;
-  const top = getCellHeight(space.heights, col, row);
+  const top = getCellHeight(space.heights, col, row, space.floor);
   const nearCol = heightOrGround(space, col + 1, row);
   const nearRow = heightOrGround(space, col, row + 1);
   const colIsBoundary = col + 1 >= space.gridSize.cols;
@@ -213,7 +215,7 @@ function getOccluders(space: IsoColumnSpace, cell: IsoCell): IsoPoint[][] {
       (other) =>
         isInFront(other, cell) &&
         Math.abs(other.col - other.row - diagonal) <= 1 &&
-        getCellHeight(space.heights, other.col, other.row) > 0,
+        getCellHeight(space.heights, other.col, other.row, space.floor) > 0,
     )
     .map((other) => getColumnSilhouette(other.col, other.row, space));
 }
