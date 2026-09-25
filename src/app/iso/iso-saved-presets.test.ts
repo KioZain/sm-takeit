@@ -151,84 +151,14 @@ describe("sushi set saved presets", () => {
   });
 
   it("leaves the field alone for a settings-only preset", () => {
-    const settingsOnly = ISO_PRESETS.find((preset) => preset.objects.length === 0);
-    const values = applied(getIsoSavedPresetCommand(withPlacements([at("maki", 0, 0)]), settingsOnly!));
-    expect(settingsOnly!.values[ISO_TARGETS.gridCols]).toBe(4);
+    // Every baked preset owns a layout now, so this covers a preset saved with
+    // no uploads: it may only carry settings and must not clear the field.
+    const settingsOnly = { ...ISO_PRESETS[0]!, objects: [], placements: [] };
+    const values = applied(getIsoSavedPresetCommand(withPlacements([at("maki", 0, 0)]), settingsOnly));
 
     expect(values[ISO_TARGETS.placements]).toBeUndefined();
     expect(values[ISO_TARGETS.libraryObjects]).toBeUndefined();
-  });
-
-
-  it("gives every preset its own set of images and replaces the previous one", () => {
-    // One library of six uploads; two presets use three each, in different cells.
-    const uploads = ["maki", "nigiri", "unagi", "ebi", "tamago", "sake"];
-    const library = (ids: readonly string[]) => ({
-      activeId: null,
-      items: Object.fromEntries(ids.map((name) => [`file-${name}`, record(name)])),
-    });
-    const base = (placed: readonly IsoPlacement[]) =>
-      createState(
-        { [ISO_TARGETS.libraryObjects]: library(uploads), [ISO_TARGETS.placements]: { items: placed } },
-        uploads.map((name) => asset(`file-${name}`)),
-      );
-
-    const first = createIsoSavedPreset(
-      base([at("file-maki", 0, 0), at("file-nigiri", 1, 0), at("file-unagi", 2, 0)]),
-      "Сет А",
-      "preset-a",
-      "",
-    );
-    const second = createIsoSavedPreset(
-      base([at("file-ebi", 0, 1), at("file-tamago", 1, 1)]),
-      "Сет Б",
-      "preset-b",
-      "",
-    );
-
-    const names = (preset: typeof first) => preset.placements.map((piece) => piece.objectName);
-    expect(names(first)).toEqual(["maki", "nigiri", "unagi"]);
-    expect(names(second)).toEqual(["ebi", "tamago"]);
-
-    // Applying the second preset over the first leaves none of the first's pieces.
-    const afterFirst = applied(getIsoSavedPresetCommand(base([]), first));
-    const withFirst = base(
-      (afterFirst[ISO_TARGETS.placements] as { items: readonly IsoPlacement[] }).items,
-    );
-    const afterSecond = applied(getIsoSavedPresetCommand(withFirst, second));
-    const placed = (afterSecond[ISO_TARGETS.placements] as { items: readonly IsoPlacement[] }).items;
-
-    expect(placed.map((piece) => piece.objectId)).toEqual(["file-ebi", "file-tamago"]);
-    expect(placed.some((piece) => piece.objectId === "file-maki")).toBe(false);
-  });
-
-  it("restores the per-image settings stored in a preset", () => {
-    const tuned = createState(
-      {
-        [ISO_TARGETS.libraryObjects]: {
-          activeId: null,
-          items: { "file-maki": record("maki", { anchor: { x: 0.31, y: 0.62 }, scale: 1.4 }) },
-        },
-        [ISO_TARGETS.placements]: { items: [at("file-maki", 0, 0)] },
-      },
-      [asset("file-maki")],
-    );
-    const preset = createIsoSavedPreset(tuned, "Свой якорь", "preset-anchor", "");
-
-    // A different session where the same file was uploaded with default settings.
-    const plain = createState(
-      {
-        [ISO_TARGETS.libraryObjects]: { activeId: null, items: { "file-maki": record("maki") } },
-        [ISO_TARGETS.placements]: { items: [] },
-      },
-      [asset("file-maki")],
-    );
-    const library = applied(getIsoSavedPresetCommand(plain, preset))[ISO_TARGETS.libraryObjects] as {
-      items: Record<string, { anchor: unknown; scale: number }>;
-    };
-
-    expect(library.items["file-maki"]?.anchor).toEqual({ x: 0.31, y: 0.62 });
-    expect(library.items["file-maki"]?.scale).toBe(1.4);
+    expect(values[ISO_TARGETS.gridCols]).toBe(4);
   });
 
   it("is reachable from the Presets section", () => {

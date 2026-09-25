@@ -45,6 +45,13 @@ describe("baked presets", () => {
     });
   });
 
+  it("gives every preset its own layout", () => {
+    ISO_PRESETS.forEach((preset) => {
+      expect(preset.placements.length, preset.name).toBeGreaterThan(0);
+      expect(preset.objects.length, preset.name).toBeGreaterThan(0);
+    });
+  });
+
   it("only uses images the generator ships with", () => {
     ISO_PRESETS.forEach((preset) => {
       const used = [...new Set(preset.placements.map((piece) => piece.objectName))];
@@ -67,7 +74,7 @@ describe("baked presets", () => {
       expect(renders.length, preset.name).toBe(onGrid.length);
       return renders.length;
     });
-    expect(rendered).toEqual([16, 24, 8, 0, 32]);
+    expect(rendered).toEqual([16, 24, 8, 16, 32]);
   });
 
   it("starts the app on an empty flat field", () => {
