@@ -15,7 +15,7 @@ const SET_VALUES = {
   [ISO_TARGETS.cellSize]: 72,
   [ISO_TARGETS.crop]: "field",
   [ISO_TARGETS.gridRows]: 4,
-  [ISO_TARGETS.gridVisible]: false,
+  [ISO_TARGETS.gridVisible]: true,
   [ISO_TARGETS.includeBackground]: false,
   [ISO_TARGETS.includeGrid]: false,
   [ISO_TARGETS.padding]: 24,
