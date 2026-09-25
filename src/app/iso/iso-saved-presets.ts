@@ -223,16 +223,19 @@ export type IsoSavedPresetMatch = Readonly<{
   matched: number;
 }>;
 
-/** Which of a preset's objects the current uploads cover. */
+/**
+ * Which images a preset's layout needs and whether they are uploaded. Only the
+ * objects it actually places count: a preset also stores settings for the rest of
+ * the library, and those do not make a set incomplete.
+ */
 export function getIsoSavedPresetMatch(
   state: IsoStateSource,
   preset: IsoSavedPreset,
 ): IsoSavedPresetMatch {
   const ids = getObjectIdsByName(state);
-  const missing = preset.objects
-    .filter((object) => !ids.has(object.name))
-    .map((object) => object.name);
-  return { matched: preset.objects.length - missing.length, missing };
+  const used = [...new Set(preset.placements.map((placement) => placement.objectName))];
+  const missing = used.filter((name) => !ids.has(name));
+  return { matched: used.length - missing.length, missing };
 }
 
 function toLibraryItems(

@@ -16,6 +16,7 @@ import {
   toIsoSavedPresetsFile,
 } from "./iso-saved-presets";
 import { ISO_PRESETS } from "./iso-presets";
+import type { IsoPlacement } from "./iso-geometry";
 import { ISO_TARGETS } from "./iso-state";
 import { asset, at, createState, record, withPlacements } from "./iso-test-fixtures";
 
@@ -104,6 +105,8 @@ describe("sushi set saved presets", () => {
     );
 
     expect(getIsoSavedPresetMatch(onlyMaki, preset)).toEqual({ matched: 1, missing: ["nigiri"] });
+    // An uploaded object the preset never places does not make the set incomplete.
+    expect(getIsoSavedPresetMatch(createState(), preset)).toEqual({ matched: 2, missing: [] });
     const values = applied(getIsoSavedPresetCommand(onlyMaki, preset));
     expect(values[ISO_TARGETS.placements]).toEqual({
       items: [{ col: 1, footprint: "1x1", id: "maki-2@1,2", objectId: "maki-2", row: 2 }],
@@ -167,6 +170,78 @@ describe("sushi set saved presets", () => {
 
     expect(values[ISO_TARGETS.placements]).toBeUndefined();
     expect(values[ISO_TARGETS.libraryObjects]).toBeUndefined();
+  });
+
+
+  it("gives every preset its own set of images and replaces the previous one", () => {
+    // One library of six uploads; two presets use three each, in different cells.
+    const uploads = ["maki", "nigiri", "unagi", "ebi", "tamago", "sake"];
+    const library = (ids: readonly string[]) => ({
+      activeId: null,
+      items: Object.fromEntries(ids.map((name) => [`file-${name}`, record(name)])),
+    });
+    const base = (placed: readonly IsoPlacement[]) =>
+      createState(
+        { [ISO_TARGETS.libraryObjects]: library(uploads), [ISO_TARGETS.placements]: { items: placed } },
+        uploads.map((name) => asset(`file-${name}`)),
+      );
+
+    const first = createIsoSavedPreset(
+      base([at("file-maki", 0, 0), at("file-nigiri", 1, 0), at("file-unagi", 2, 0)]),
+      "Сет А",
+      "preset-a",
+      "",
+    );
+    const second = createIsoSavedPreset(
+      base([at("file-ebi", 0, 1), at("file-tamago", 1, 1)]),
+      "Сет Б",
+      "preset-b",
+      "",
+    );
+
+    const names = (preset: typeof first) => preset.placements.map((piece) => piece.objectName);
+    expect(names(first)).toEqual(["maki", "nigiri", "unagi"]);
+    expect(names(second)).toEqual(["ebi", "tamago"]);
+
+    // Applying the second preset over the first leaves none of the first's pieces.
+    const afterFirst = applied(getIsoSavedPresetCommand(base([]), first));
+    const withFirst = base(
+      (afterFirst[ISO_TARGETS.placements] as { items: readonly IsoPlacement[] }).items,
+    );
+    const afterSecond = applied(getIsoSavedPresetCommand(withFirst, second));
+    const placed = (afterSecond[ISO_TARGETS.placements] as { items: readonly IsoPlacement[] }).items;
+
+    expect(placed.map((piece) => piece.objectId)).toEqual(["file-ebi", "file-tamago"]);
+    expect(placed.some((piece) => piece.objectId === "file-maki")).toBe(false);
+  });
+
+  it("restores the per-image settings stored in a preset", () => {
+    const tuned = createState(
+      {
+        [ISO_TARGETS.libraryObjects]: {
+          activeId: null,
+          items: { "file-maki": record("maki", { anchor: { x: 0.31, y: 0.62 }, scale: 1.4 }) },
+        },
+        [ISO_TARGETS.placements]: { items: [at("file-maki", 0, 0)] },
+      },
+      [asset("file-maki")],
+    );
+    const preset = createIsoSavedPreset(tuned, "Свой якорь", "preset-anchor", "");
+
+    // A different session where the same file was uploaded with default settings.
+    const plain = createState(
+      {
+        [ISO_TARGETS.libraryObjects]: { activeId: null, items: { "file-maki": record("maki") } },
+        [ISO_TARGETS.placements]: { items: [] },
+      },
+      [asset("file-maki")],
+    );
+    const library = applied(getIsoSavedPresetCommand(plain, preset))[ISO_TARGETS.libraryObjects] as {
+      items: Record<string, { anchor: unknown; scale: number }>;
+    };
+
+    expect(library.items["file-maki"]?.anchor).toEqual({ x: 0.31, y: 0.62 });
+    expect(library.items["file-maki"]?.scale).toBe(1.4);
   });
 
   it("is reachable from the Presets section", () => {

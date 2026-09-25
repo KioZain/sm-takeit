@@ -156,15 +156,15 @@
     },
     "canvas": {
       "offset": {
-        "x": -97.68,
-        "y": 29.665004681250025
+        "x": -33.54458051282052,
+        "y": -73.83869357828523
       },
       "size": {
         "height": 264,
         "unit": "px",
         "width": 480
       },
-      "zoom": 156,
+      "zoom": 214,
       "mode": "finite"
     },
     "panels": {
@@ -173,7 +173,8 @@
         "offset": {
           "x": 0,
           "y": 0
-        }
+        },
+        "scrollTop": 0
       },
       "layers": {
         "offset": {
@@ -195,7 +196,7 @@
       }
     },
     "timeline": {
-      "currentTimeSeconds": 0,
+      "currentTimeSeconds": 1.658300000000001,
       "durationSeconds": 4,
       "expanded": false,
       "isLooping": true,
