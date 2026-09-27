@@ -1,5 +1,6 @@
 import {
   getFieldBounds,
+  getFloorBackStep,
   unionRects,
   type IsoCell,
   type IsoColumnFace,
@@ -42,7 +43,7 @@ export const ISO_SINGLE_FLOOR: IsoStack = Object.freeze({ floors: 1, offset: 0 }
  * cell below in two.
  */
 export function getIsoFloorOffset(gridSize: IsoGridSize, cellSize: number): number {
-  return ((Math.min(gridSize.cols, gridSize.rows) - 1) * cellSize) / 2;
+  return (getFloorBackStep(gridSize) * cellSize) / 2;
 }
 
 export function getIsoStack(
@@ -98,8 +99,8 @@ export function getIsoStackBounds(
 }
 
 /**
- * The floor a screen point belongs to, searched from the top down: floors are
- * painted upwards, so the highest one owns the overlap.
+ * The floor a screen point belongs to, searched from the ground up: a higher
+ * floor stands further back, so the nearest one owns anything they share.
  */
 export function findIsoFloorAtPoint<T>(
   point: IsoPoint,
@@ -108,7 +109,6 @@ export function findIsoFloorAtPoint<T>(
 ): T | null {
   return (
     getIsoFloors(stack)
-      .reverse()
       .map((floor) => resolve(liftPoint(point, -floor, stack), floor))
       .find((hit): hit is T => hit !== null) ?? null
   );

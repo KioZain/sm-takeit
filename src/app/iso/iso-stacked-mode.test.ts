@@ -101,10 +101,44 @@ describe("stacked grid mode", () => {
     expect(getIsoActivePlacements(state)).toHaveLength(2);
     const model = buildIsoSceneModelFromState(state);
     expect(model.items).toHaveLength(2);
-    const [ground, top] = model.items;
-    expect(top!.placement.floor).toBe(2);
-    // The upper piece is drawn higher and later, so it overlaps the lower one.
-    expect(top!.imageRect!.y).toBeLessThan(ground!.imageRect!.y);
+    const [back, front] = model.items;
+    expect(back!.placement.floor).toBe(2);
+    expect(front!.placement.floor).toBe(0);
+    // The upper piece is drawn higher on screen and first, being further back.
+    expect(back!.imageRect!.y).toBeLessThan(front!.imageRect!.y);
+  });
+
+  it("draws the tower as one receding field, nearest piece last", () => {
+    // One piece per floor: the far corner of the top floor, the near corner of
+    // the ground floor, and a middle floor cell between them.
+    const pieces = [
+      at("maki", 0, 0, "1x1", 2),
+      at("nigiri", 1, 1, "1x1", 1),
+      at("maki", ZONE - 1, ZONE - 1, "1x1", 0),
+    ];
+    const state = stacked({ [ISO_TARGETS.placements]: { items: pieces } });
+    const items = buildIsoSceneModelFromState(state).items;
+
+    // Painted from the furthest zone to the nearest, exactly like one field.
+    expect(items.map((item) => item.placement.floor)).toEqual([2, 1, 0]);
+    // Each next piece is drawn lower on screen, so it overlaps the one before.
+    const tops = items.map((item) => item.imageRect!.y);
+    expect(tops[0]!).toBeLessThan(tops[1]!);
+    expect(tops[1]!).toBeLessThan(tops[2]!);
+  });
+
+  it("keeps a lower floor in front of the floor above at the seam", () => {
+    // The ground floor's far corner cell is the rhombus the floor above gave
+    // up, so it must be painted after that floor's nearest pieces.
+    const pieces = [
+      at("maki", ZONE - 2, ZONE - 1, "1x1", 1),
+      at("nigiri", ZONE - 1, ZONE - 2, "1x1", 1),
+      at("maki", 0, 0, "1x1", 0),
+    ];
+    const state = stacked({ [ISO_TARGETS.placements]: { items: pieces } });
+    const items = buildIsoSceneModelFromState(state).items;
+
+    expect(items.map((item) => item.placement.floor)).toEqual([1, 1, 0]);
   });
 
   it("stores pieces of floors above the current count and brings them back", () => {

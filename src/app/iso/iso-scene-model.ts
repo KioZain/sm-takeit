@@ -114,8 +114,9 @@ function buildFloorItems(
 /**
  * Pure scene layout: pieces stand on top of their columns (a piece on uneven
  * columns, left over from later height edits, stands on the highest one).
- * Floors are laid out from the ground up, so a higher floor overlaps the one
- * below it exactly as it is drawn.
+ * Floors are laid out from the ground up, and pieces are drawn in one order
+ * across the whole tower: a higher floor stands further back, so everything in
+ * front of it overlaps it.
  */
 export function buildIsoSceneModel(input: IsoSceneInput): IsoSceneModel {
   const stack = getIsoSceneStack(input);
@@ -145,7 +146,11 @@ export function buildIsoSceneModel(input: IsoSceneInput): IsoSceneModel {
     input.gridSize,
     stack.floors,
   );
-  const items = buildFloorItems(input, sortPlacementsForDrawing(renderable), stack);
+  const items = buildFloorItems(
+    input,
+    sortPlacementsForDrawing(renderable, input.gridSize),
+    stack,
+  );
   const elevationIn = (heights: IsoHeightMap, placement: IsoPlacement) =>
     Math.max(0, ...getFootprintHeights(placement, heights)) * input.levelHeight;
   const rectIn = (heights: IsoHeightMap, item: IsoSceneItem) => {

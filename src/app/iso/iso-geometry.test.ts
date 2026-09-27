@@ -104,17 +104,31 @@ describe("iso placement operations", () => {
 
 describe("iso drawing order", () => {
   it("orders single cells by far-corner depth then column", () => {
-    const order = sortPlacementsForDrawing([at("a", 1, 1), at("b", 0, 1), at("c", 1, 0), at("d", 0, 0)]);
+    const order = sortPlacementsForDrawing(
+      [at("a", 1, 1), at("b", 0, 1), at("c", 1, 0), at("d", 0, 0)],
+      SIX,
+    );
     expect(order.map((placement) => placement.objectId)).toEqual(["d", "b", "c", "a"]);
   });
 
   it("draws a cell directly behind a wide footprint before it", () => {
     const wide = at("wide", 0, 1, "2x1");
     const behind = at("behind", 1, 0);
-    expect(sortPlacementsForDrawing([wide, behind]).map((placement) => placement.objectId)).toEqual([
-      "behind",
-      "wide",
-    ]);
+    expect(
+      sortPlacementsForDrawing([wide, behind], SIX).map((placement) => placement.objectId),
+    ).toEqual(["behind", "wide"]);
+  });
+
+  it("draws a higher floor first, as the zone standing further back", () => {
+    const zone = { cols: 3, rows: 3 };
+    // Floor 1 stands two cells back, so its near corner (1, 1) is still behind
+    // the ground floor's far corner (0, 0) — and its own far corner is last.
+    const order = sortPlacementsForDrawing(
+      [at("ground", 0, 0), at("near", 1, 1, "1x1", 1), at("far", 0, 0, "1x1", 1)],
+      zone,
+    ).map((placement) => placement.objectId);
+
+    expect(order).toEqual(["far", "near", "ground"]);
   });
 
   it("draws a 2x2 footprint after both neighbours it overlaps from the front", () => {
@@ -122,7 +136,9 @@ describe("iso drawing order", () => {
     const left = at("left", 0, 1);
     const top = at("top", 1, 0);
     const front = at("front", 3, 1);
-    const order = sortPlacementsForDrawing([front, large, left, top]).map((placement) => placement.objectId);
+    const order = sortPlacementsForDrawing([front, large, left, top], SIX).map(
+      (placement) => placement.objectId,
+    );
     expect(order.indexOf("left")).toBeLessThan(order.indexOf("large"));
     expect(order.indexOf("top")).toBeLessThan(order.indexOf("large"));
     expect(order.indexOf("large")).toBeLessThan(order.indexOf("front"));

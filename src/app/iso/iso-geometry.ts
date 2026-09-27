@@ -196,6 +196,16 @@ export function isFloorSeamCell(
   return floor > 0 && col === gridSize.cols - 1 && row === gridSize.rows - 1;
 }
 
+/**
+ * How many cells further back a floor stands than the one below it. Lifting a
+ * zone by this many cell diagonals is, in isometric, the same as moving it
+ * that far back along both axes: the tower is one receding field, not a pile
+ * of layers, so higher on screen means further from the viewer.
+ */
+export function getFloorBackStep(gridSize: IsoGridSize): number {
+  return Math.min(gridSize.cols, gridSize.rows) - 1;
+}
+
 /** Cells a floor owns: the whole grid on the ground, one cell less above it. */
 export function getFloorCells(gridSize: IsoGridSize, floor = 0): IsoCell[] {
   return getGridCells(gridSize).filter(
@@ -504,22 +514,36 @@ function spansOverlap(start0: number, length0: number, start1: number, length1: 
   return start0 < start1 + length1 && start1 < start0 + length0;
 }
 
-/** True when `back` must be painted before `front` to overlap correctly. */
-function isBehind(back: IsoPlacement, front: IsoPlacement): boolean {
-  if (back.floor !== front.floor) return back.floor < front.floor;
-  const b = getFootprintSpan(back.footprint);
-  const f = getFootprintSpan(front.footprint);
+/**
+ * Where a piece stands once its floor is folded into depth: the floor is not a
+ * layer above, it is the same zone `step` cells further back, so one order
+ * covers the whole tower.
+ */
+function toDepthCell(placement: IsoPlacement, step: number): IsoCell {
+  const back = placement.floor * step;
+  return { col: placement.col - back, row: placement.row - back };
+}
+
+/** True when `far` must be painted before `near` to overlap correctly. */
+function isBehind(far: IsoPlacement, near: IsoPlacement, step: number): boolean {
+  const spanFar = getFootprintSpan(far.footprint);
+  const spanNear = getFootprintSpan(near.footprint);
+  const cellFar = toDepthCell(far, step);
+  const cellNear = toDepthCell(near, step);
   return (
-    (back.col + b.cols <= front.col && spansOverlap(back.row, b.rows, front.row, f.rows)) ||
-    (back.row + b.rows <= front.row && spansOverlap(back.col, b.cols, front.col, f.cols))
+    (cellFar.col + spanFar.cols <= cellNear.col &&
+      spansOverlap(cellFar.row, spanFar.rows, cellNear.row, spanNear.rows)) ||
+    (cellFar.row + spanFar.rows <= cellNear.row &&
+      spansOverlap(cellFar.col, spanFar.cols, cellNear.col, spanNear.cols))
   );
 }
 
-function compareDrawKey(left: IsoPlacement, right: IsoPlacement): number {
+function compareDrawKey(left: IsoPlacement, right: IsoPlacement, step: number): number {
+  const cellLeft = toDepthCell(left, step);
+  const cellRight = toDepthCell(right, step);
   return (
-    left.floor - right.floor ||
-    left.col + left.row - (right.col + right.row) ||
-    left.col - right.col ||
+    cellLeft.col + cellLeft.row - (cellRight.col + cellRight.row) ||
+    cellLeft.col - cellRight.col ||
     (left.id < right.id ? -1 : left.id > right.id ? 1 : 0)
   );
 }
@@ -527,13 +551,19 @@ function compareDrawKey(left: IsoPlacement, right: IsoPlacement): number {
 /**
  * Back-to-front order: far-corner (col + row) then col, corrected so any
  * placement lying directly behind a multi-cell neighbour is drawn first.
+ * Stacked floors take part in the same order, the topmost one furthest back.
  */
-export function sortPlacementsForDrawing(placements: readonly IsoPlacement[]): IsoPlacement[] {
-  const remaining = [...placements].sort(compareDrawKey);
+export function sortPlacementsForDrawing(
+  placements: readonly IsoPlacement[],
+  gridSize: IsoGridSize,
+): IsoPlacement[] {
+  const step = getFloorBackStep(gridSize);
+  const remaining = [...placements].sort((left, right) => compareDrawKey(left, right, step));
   const ordered: IsoPlacement[] = [];
   while (remaining.length > 0) {
     const index = remaining.findIndex(
-      (candidate) => !remaining.some((other) => other !== candidate && isBehind(other, candidate)),
+      (candidate) =>
+        !remaining.some((other) => other !== candidate && isBehind(other, candidate, step)),
     );
     const [next] = remaining.splice(index === -1 ? 0 : index, 1);
     ordered.push(next!);
