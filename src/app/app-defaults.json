@@ -18,6 +18,9 @@
         "items": [],
         "order": []
       },
+      "grid.mode": "classic",
+      "grid.zone": 3,
+      "grid.floors": 3,
       "grid.cols": 6,
       "grid.rows": 6,
       "grid.visible": true,
@@ -152,15 +155,12 @@
       "export.video.format": "mp4",
       "export.video.resolution": "current",
       "grid.cellSize": 72,
-      "grid.levelHeight": 24,
-      "grid.mode": "classic",
-      "grid.zone": 3,
-      "grid.floors": 3
+      "grid.levelHeight": 24
     },
     "canvas": {
       "offset": {
         "x": -28.305860512820562,
-        "y": -34.702373578285204
+        "y": -2.812435978285187
       },
       "size": {
         "height": 264,
@@ -199,7 +199,7 @@
       }
     },
     "timeline": {
-      "currentTimeSeconds": 3.908299999999989,
+      "currentTimeSeconds": 1.8665999999999912,
       "durationSeconds": 4,
       "expanded": false,
       "isLooping": true,
