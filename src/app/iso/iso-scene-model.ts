@@ -40,6 +40,7 @@ export function getIsoColumnSpace(input: IsoSceneInput, floor = 0): IsoColumnSpa
   return {
     cellSize: input.cellSize,
     floor,
+    floors: getIsoSceneStack(input).floors,
     gridSize: input.gridSize,
     heights: input.heights,
     levelHeight: input.levelHeight,

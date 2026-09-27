@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 
 import {
   getColumnAtPoint,
+  getColumnGuide,
   getColumnGuideFaces,
   getColumnGuideSegments,
   getColumnSilhouette,
@@ -10,7 +11,14 @@ import {
 import { checkPlacement, projectIso } from "./iso-geometry";
 
 function space(heights: Record<string, number>, size = 3, rows = size): IsoColumnSpace {
-  return { cellSize: 100, floor: 0, gridSize: { cols: size, rows }, heights: new Map(Object.entries(heights)), levelHeight: 50 };
+  return {
+    cellSize: 100,
+    floor: 0,
+    floors: 1,
+    gridSize: { cols: size, rows },
+    heights: new Map(Object.entries(heights)),
+    levelHeight: 50,
+  };
 }
 
 describe("iso columns", () => {
@@ -37,6 +45,40 @@ describe("iso columns", () => {
         .sort((left, right) => left - right);
     expect(heights("left")).toEqual([50, 100]);
     expect(heights("right")).toEqual([50, 50]);
+  });
+
+  it("hides what a column of the floor in front covers on the floor behind", () => {
+    // Zone 3 of a two-floor tower: the ground floor stands two cells nearer,
+    // so its middle column rises straight in front of the upper floor.
+    const upper = (heights: Record<string, number>): IsoColumnSpace => ({
+      ...space(heights),
+      floor: 1,
+      floors: 2,
+    });
+    const drawn = (space: IsoColumnSpace, hideHidden: boolean) =>
+      getColumnGuide(space, hideHidden).segments.reduce(
+        (total, segment) =>
+          total + Math.hypot(segment.to.x - segment.from.x, segment.to.y - segment.from.y),
+        0,
+      );
+    const clear = drawn(upper({}), true);
+
+    // The column swallows the guide lines standing behind it.
+    expect(drawn(upper({ "1,1": 3 }), true)).toBeLessThan(clear - 100);
+    // Without hidden-line removal the upper floor keeps every line.
+    expect(drawn(upper({ "1,1": 3 }), false)).toBeCloseTo(clear);
+  });
+
+  it("reads the cell a floor shares with the one below as its neighbour", () => {
+    const upper = (heights: Record<string, number>): IsoColumnSpace => ({
+      ...space(heights),
+      floor: 1,
+      floors: 2,
+    });
+    // The ground floor's far cell is the upper floor's seam cell. Raised, it
+    // becomes a real neighbour, so the upper floor draws the edge between them.
+    const flat = getColumnGuide(upper({}), false).segments.length;
+    expect(getColumnGuide(upper({ "0,0": 2 }), false).segments.length).toBeGreaterThan(flat);
   });
 
   it("hits the raised front column before the ground behind it", () => {

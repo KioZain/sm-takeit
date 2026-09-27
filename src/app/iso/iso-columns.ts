@@ -1,5 +1,6 @@
 import {
   getCellHeight,
+  getFloorBackStep,
   getFloorCells,
   getFootprintSpan,
   isFloorSeamCell,
@@ -20,11 +21,16 @@ export type IsoColumnSpace = Readonly<{
   cellSize: number;
   /** Stacked floor this space describes; a classic field only has floor 0. */
   floor: number;
+  /** Floors in the tower this one belongs to; a classic field has one. */
+  floors: number;
   gridSize: IsoGridSize;
   heights: IsoHeightMap;
   /** Screen height of one level in px. */
   levelHeight: number;
 }>;
+
+/** A column of any floor, placed in this floor's own cell coordinates. */
+type IsoLocalColumn = IsoCell & Readonly<{ levels: number }>;
 
 function lifted(col: number, row: number, levels: number, space: IsoColumnSpace): IsoPoint {
   const point = projectIso(col, row, space.cellSize);
@@ -36,15 +42,27 @@ function floorCells(space: IsoColumnSpace): IsoCell[] {
   return getFloorCells(space.gridSize, space.floor);
 }
 
-/** Height of a cell, or 0 outside this floor (the ground). */
-function heightOrGround(space: IsoColumnSpace, col: number, row: number): number {
-  const onFloor =
-    col >= 0 &&
-    row >= 0 &&
-    col < space.gridSize.cols &&
-    row < space.gridSize.rows &&
-    !isFloorSeamCell(space.gridSize, col, row, space.floor);
-  return onFloor ? getCellHeight(space.heights, col, row, space.floor) : 0;
+/**
+ * Every column of the tower in this floor's coordinates. A floor stands a
+ * whole number of cells further back, so the tower shares one cell grid: the
+ * columns of other floors take part in this floor's depth, neighbours and
+ * occlusion exactly like its own.
+ */
+function getTowerColumns(space: IsoColumnSpace): IsoLocalColumn[] {
+  const step = getFloorBackStep(space.gridSize);
+  return Array.from({ length: Math.max(1, space.floors) }, (_, floor) => floor).flatMap((floor) => {
+    const back = (floor - space.floor) * step;
+    return getFloorCells(space.gridSize, floor).map((cell) => ({
+      col: cell.col - back,
+      levels: getCellHeight(space.heights, cell.col, cell.row, floor),
+      row: cell.row - back,
+    }));
+  });
+}
+
+/** Height of the column at a local cell, or 0 where the tower has none (the ground). */
+function heightOrGround(columns: readonly IsoLocalColumn[], col: number, row: number): number {
+  return columns.find((column) => column.col === col && column.row === row)?.levels ?? 0;
 }
 
 /** Top outline of a footprint standing on columns of height `levels`. */
@@ -66,7 +84,15 @@ export function getRaisedFootprintDiamond(
 
 /** Screen outline of one column, from its top down to the ground. */
 export function getColumnSilhouette(col: number, row: number, space: IsoColumnSpace): IsoPoint[] {
-  const levels = getCellHeight(space.heights, col, row, space.floor);
+  return getRaisedSilhouette(col, row, getCellHeight(space.heights, col, row, space.floor), space);
+}
+
+function getRaisedSilhouette(
+  col: number,
+  row: number,
+  levels: number,
+  space: IsoColumnSpace,
+): IsoPoint[] {
   return [
     lifted(col, row, levels, space),
     lifted(col + 1, row, levels, space),
@@ -166,11 +192,15 @@ type CellGuide = Readonly<{
 }>;
 
 /** Top edges and front faces owned by one cell. */
-function getCellGuide(space: IsoColumnSpace, cell: IsoCell): CellGuide {
+function getCellGuide(
+  space: IsoColumnSpace,
+  columns: readonly IsoLocalColumn[],
+  cell: IsoCell,
+): CellGuide {
   const { col, row } = cell;
   const top = getCellHeight(space.heights, col, row, space.floor);
-  const nearCol = heightOrGround(space, col + 1, row);
-  const nearRow = heightOrGround(space, col, row + 1);
+  const nearCol = heightOrGround(columns, col + 1, row);
+  const nearRow = heightOrGround(columns, col, row + 1);
   const colIsBoundary = col + 1 >= space.gridSize.cols;
   const rowIsBoundary = row + 1 >= space.gridSize.rows;
   const colDiffers = !isSameHeight(nearCol, top);
@@ -216,26 +246,32 @@ function getCellGuide(space: IsoColumnSpace, cell: IsoCell): CellGuide {
  * front faces that drop to a lower neighbour or to the ground. With all
  * heights at 0 this is exactly the flat rhombus grid.
  */
-function getCellGuides(space: IsoColumnSpace): CellGuide[] {
-  return floorCells(space).map((cell) => getCellGuide(space, cell));
+function getCellGuides(space: IsoColumnSpace, columns: readonly IsoLocalColumn[]): CellGuide[] {
+  return floorCells(space).map((cell) => getCellGuide(space, columns, cell));
 }
 
 export type IsoColumnGuide = Readonly<{ faces: IsoColumnFace[]; segments: IsoSegment[] }>;
 
 /**
- * Silhouettes of raised columns standing in front of `cell`. Only columns on
- * the same or a neighbouring screen column can overlap it.
+ * Silhouettes of raised columns standing in front of `cell`, from anywhere in
+ * the tower. Only columns on the same or a neighbouring screen column can
+ * overlap it, and a floor's shift keeps `col - row`, so the filter holds
+ * across floors as it does inside one.
  */
-function getOccluders(space: IsoColumnSpace, cell: IsoCell): IsoPoint[][] {
+function getOccluders(
+  space: IsoColumnSpace,
+  columns: readonly IsoLocalColumn[],
+  cell: IsoCell,
+): IsoPoint[][] {
   const diagonal = cell.col - cell.row;
-  return floorCells(space)
+  return columns
     .filter(
       (other) =>
+        other.levels > 0 &&
         isInFront(other, cell) &&
-        Math.abs(other.col - other.row - diagonal) <= 1 &&
-        getCellHeight(space.heights, other.col, other.row, space.floor) > 0,
+        Math.abs(other.col - other.row - diagonal) <= 1,
     )
-    .map((other) => getColumnSilhouette(other.col, other.row, space));
+    .map((other) => getRaisedSilhouette(other.col, other.row, other.levels, space));
 }
 
 /**
@@ -244,8 +280,9 @@ function getOccluders(space: IsoColumnSpace, cell: IsoCell): IsoPoint[][] {
  * what a solid model would show.
  */
 export function getColumnGuide(space: IsoColumnSpace, hideHidden: boolean): IsoColumnGuide {
-  const cells = getCellGuides(space);
-  const occludersOf = (cell: IsoCell) => (hideHidden ? getOccluders(space, cell) : []);
+  const columns = getTowerColumns(space);
+  const cells = getCellGuides(space, columns);
+  const occludersOf = (cell: IsoCell) => (hideHidden ? getOccluders(space, columns, cell) : []);
   const edges = cells.flatMap((guide) => {
     const occluders = occludersOf(guide.cell);
     return guide.edges.flatMap(([c0, r0, c1, r1, levels]) =>
