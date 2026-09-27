@@ -1,5 +1,6 @@
 import {
   cellRectContains,
+  getFloorCells,
   getGridCells,
   getCellHeight,
   getFootprintSpan,
@@ -258,10 +259,10 @@ export function levelFootprints(
 }
 
 /** Every cell at one level, e.g. the trough or crest of a running wave. */
-/** Every cell of every floor, ground floor first. */
+/** Every cell of every floor, ground floor first; a raised floor has one less. */
 export function getStackCells(gridSize: IsoGridSize, floors = 1): IsoStackCell[] {
   return Array.from({ length: Math.max(1, floors) }, (_, floor) => floor).flatMap((floor) =>
-    getGridCells(gridSize).map((cell) => ({ ...cell, floor })),
+    getFloorCells(gridSize, floor).map((cell) => ({ ...cell, floor })),
   );
 }
 

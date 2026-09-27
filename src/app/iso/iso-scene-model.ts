@@ -8,8 +8,8 @@ import {
   filterRenderablePlacements,
   getCellHeight,
   getFieldBounds,
+  getFloorCells,
   getFootprintHeights,
-  getGridCells,
   getPlacementImageRect,
   getPointsBounds,
   projectIso,
@@ -63,7 +63,7 @@ function getRaisedFloorBounds(
   stack: IsoStack,
 ): IsoRect {
   const ground = liftRect(getFieldBounds(input.gridSize, input.cellSize), floor, stack);
-  const tops = getGridCells(input.gridSize).map((cell) => {
+  const tops = getFloorCells(input.gridSize, floor).map((cell) => {
     const level = getCellHeight(heights, cell.col, cell.row, floor);
     return liftPoint(projectIso(cell.col, cell.row, input.cellSize), floor, stack).y
       - level * input.levelHeight;

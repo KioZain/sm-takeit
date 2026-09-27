@@ -190,7 +190,7 @@ export const appAcceptance: readonly ToolcraftComponentAcceptance[] = [
     componentType: "slider",
     evidence: "rendered-pixels",
     expectedObservable:
-      "Dragging Floors adds zones above each other: the field grows taller by half a zone per floor and never wider.",
+      "Dragging Floors adds zones above each other: every floor but the shared corner cell adds height, and the field never grows wider.",
     fixture: "stacked field",
     id: "grid.floors",
     interactionId: "grid-floors",

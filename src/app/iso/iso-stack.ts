@@ -34,12 +34,15 @@ export type IsoStack = Readonly<{ floors: number; offset: number }>;
 export const ISO_SINGLE_FLOOR: IsoStack = Object.freeze({ floors: 1, offset: 0 });
 
 /**
- * Floors overlap by exactly half a zone. The bottom corner of a floor then
- * lands in the middle of the floor below, and their edges cross at the
- * midpoints of its upper edges — the corners that mark where two zones meet.
+ * Floors overlap by exactly one cell, so the shift is a whole number of cell
+ * diagonals and the whole tower keeps a single grid. The near corner cell of a
+ * floor then covers the far corner cell of the floor below, and their edges
+ * meet at that cell's side corners — the marks where two zones join. Half the
+ * zone height would only land on the grid at zone 2; at zone 3 it cuts every
+ * cell below in two.
  */
 export function getIsoFloorOffset(gridSize: IsoGridSize, cellSize: number): number {
-  return getFieldBounds(gridSize, cellSize).height / 2;
+  return ((Math.min(gridSize.cols, gridSize.rows) - 1) * cellSize) / 2;
 }
 
 export function getIsoStack(

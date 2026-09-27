@@ -181,6 +181,28 @@ export function getGridCells(gridSize: IsoGridSize): IsoCell[] {
   }));
 }
 
+/**
+ * Stacked floors interlock by exactly one cell: the near corner cell of a
+ * raised floor covers the same rhombus as the far corner cell of the floor
+ * below it. That rhombus belongs to the lower floor, so every floor above the
+ * ground gives its near corner up and the tower stays one even grid.
+ */
+export function isFloorSeamCell(
+  gridSize: IsoGridSize,
+  col: number,
+  row: number,
+  floor: number,
+): boolean {
+  return floor > 0 && col === gridSize.cols - 1 && row === gridSize.rows - 1;
+}
+
+/** Cells a floor owns: the whole grid on the ground, one cell less above it. */
+export function getFloorCells(gridSize: IsoGridSize, floor = 0): IsoCell[] {
+  return getGridCells(gridSize).filter(
+    (cell) => !isFloorSeamCell(gridSize, cell.col, cell.row, floor),
+  );
+}
+
 export function getFieldBounds(gridSize: IsoGridSize, cellSize: number): IsoRect {
   return {
     height: ((gridSize.cols + gridSize.rows) * cellSize) / 4,
@@ -276,6 +298,22 @@ export function footprintFitsGrid(
   return col >= 0 && row >= 0 && col + cols <= gridSize.cols && row + rows <= gridSize.rows;
 }
 
+/** The footprint fits the grid and stays off the seam cell the floor gave up. */
+export function footprintFitsFloor(
+  col: number,
+  row: number,
+  footprint: IsoFootprint,
+  gridSize: IsoGridSize,
+  floor = 0,
+): boolean {
+  return (
+    footprintFitsGrid(col, row, footprint, gridSize) &&
+    !getPlacementCells({ col, footprint, row }).some((cell) =>
+      isFloorSeamCell(gridSize, cell.col, cell.row, floor),
+    )
+  );
+}
+
 export function createPlacementId(
   objectId: string,
   col: number,
@@ -304,7 +342,13 @@ export function filterRenderablePlacements(
           objectIds.has(placement.objectId) &&
           placement.floor >= 0 &&
           placement.floor < floors &&
-          footprintFitsGrid(placement.col, placement.row, placement.footprint, gridSize),
+          footprintFitsFloor(
+            placement.col,
+            placement.row,
+            placement.footprint,
+            gridSize,
+            placement.floor,
+          ),
       )
       .reduce((accepted: Accepted, placement): Accepted => {
         const keys = getPlacementCells(placement).map((cell) =>
@@ -333,7 +377,7 @@ export function checkPlacement(
   heights: IsoHeightMap = new Map(),
   floor = 0,
 ): IsoPlacementCheck {
-  if (!footprintFitsGrid(col, row, footprint, gridSize)) {
+  if (!footprintFitsFloor(col, row, footprint, gridSize, floor)) {
     return { ok: false, reason: "outside" };
   }
   const [first = 0, ...rest] = getFootprintHeights({ col, floor, footprint, row }, heights);

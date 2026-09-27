@@ -3,7 +3,7 @@ import { getToolcraftTimelineLoopProgress, type ToolcraftCommand } from "@/toolc
 import {
   createPlacementId,
   filterRenderablePlacements,
-  footprintFitsGrid,
+  footprintFitsFloor,
   heightKey,
   ISO_FOOTPRINTS,
   type IsoCellRect,
@@ -377,7 +377,13 @@ export function getIsoOffGridPlacements(state: IsoStateSource): IsoPlacement[] {
     (placement) =>
       objectIds.has(placement.objectId) &&
       (placement.floor >= floors ||
-        !footprintFitsGrid(placement.col, placement.row, placement.footprint, gridSize)),
+        !footprintFitsFloor(
+          placement.col,
+          placement.row,
+          placement.footprint,
+          gridSize,
+          placement.floor,
+        )),
   );
 }
 

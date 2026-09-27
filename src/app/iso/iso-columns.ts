@@ -1,7 +1,8 @@
 import {
   getCellHeight,
-  getGridCells,
+  getFloorCells,
   getFootprintSpan,
+  isFloorSeamCell,
   isSameHeight,
   projectIso,
   type IsoCell,
@@ -30,11 +31,20 @@ function lifted(col: number, row: number, levels: number, space: IsoColumnSpace)
   return { x: point.x, y: point.y - levels * space.levelHeight };
 }
 
-/** Height of a cell, or 0 outside the grid (the ground). */
+/** Cells this floor owns; a raised floor leaves its seam cell to the one below. */
+function floorCells(space: IsoColumnSpace): IsoCell[] {
+  return getFloorCells(space.gridSize, space.floor);
+}
+
+/** Height of a cell, or 0 outside this floor (the ground). */
 function heightOrGround(space: IsoColumnSpace, col: number, row: number): number {
-  return col >= 0 && row >= 0 && col < space.gridSize.cols && row < space.gridSize.rows
-    ? getCellHeight(space.heights, col, row, space.floor)
-    : 0;
+  const onFloor =
+    col >= 0 &&
+    row >= 0 &&
+    col < space.gridSize.cols &&
+    row < space.gridSize.rows &&
+    !isFloorSeamCell(space.gridSize, col, row, space.floor);
+  return onFloor ? getCellHeight(space.heights, col, row, space.floor) : 0;
 }
 
 /** Top outline of a footprint standing on columns of height `levels`. */
@@ -80,14 +90,14 @@ function polygonContains(polygon: readonly IsoPoint[], point: IsoPoint): boolean
 }
 
 /** Cells ordered nearest first, so raised front columns win hit tests. */
-function cellsFrontToBack(gridSize: IsoGridSize): IsoCell[] {
-  return getGridCells(gridSize).sort((left, right) => right.col + right.row - (left.col + left.row));
+function cellsFrontToBack(space: IsoColumnSpace): IsoCell[] {
+  return floorCells(space).sort((left, right) => right.col + right.row - (left.col + left.row));
 }
 
 /** The visible column under a field-local point, or null. */
 export function getColumnAtPoint(point: IsoPoint, space: IsoColumnSpace): IsoCell | null {
   return (
-    cellsFrontToBack(space.gridSize).find((cell) =>
+    cellsFrontToBack(space).find((cell) =>
       polygonContains(getColumnSilhouette(cell.col, cell.row, space), point),
     ) ?? null
   );
@@ -100,7 +110,15 @@ export function getNearestColumn(point: IsoPoint, space: IsoColumnSpace): IsoCel
   const x = point.x / space.cellSize;
   const y = (2 * point.y) / space.cellSize;
   const clamp = (value: number, count: number) => Math.min(count - 1, Math.max(0, Math.floor(value)));
-  return { col: clamp(x + y, space.gridSize.cols), row: clamp(y - x, space.gridSize.rows) };
+  const cell = { col: clamp(x + y, space.gridSize.cols), row: clamp(y - x, space.gridSize.rows) };
+  if (!isFloorSeamCell(space.gridSize, cell.col, cell.row, space.floor)) return cell;
+  // The seam cell belongs to the floor below, so a drag that reaches the near
+  // corner stops at the last cell this floor still owns on the nearer side.
+  const towardsCols = x >= 0;
+  return {
+    col: towardsCols ? cell.col : Math.max(0, cell.col - 1),
+    row: towardsCols ? Math.max(0, cell.row - 1) : cell.row,
+  };
 }
 
 /** Vertical edge at grid vertex (col, row); `owner` is the column it belongs to. */
@@ -199,7 +217,7 @@ function getCellGuide(space: IsoColumnSpace, cell: IsoCell): CellGuide {
  * heights at 0 this is exactly the flat rhombus grid.
  */
 function getCellGuides(space: IsoColumnSpace): CellGuide[] {
-  return getGridCells(space.gridSize).map((cell) => getCellGuide(space, cell));
+  return floorCells(space).map((cell) => getCellGuide(space, cell));
 }
 
 export type IsoColumnGuide = Readonly<{ faces: IsoColumnFace[]; segments: IsoSegment[] }>;
@@ -210,7 +228,7 @@ export type IsoColumnGuide = Readonly<{ faces: IsoColumnFace[]; segments: IsoSeg
  */
 function getOccluders(space: IsoColumnSpace, cell: IsoCell): IsoPoint[][] {
   const diagonal = cell.col - cell.row;
-  return getGridCells(space.gridSize)
+  return floorCells(space)
     .filter(
       (other) =>
         isInFront(other, cell) &&

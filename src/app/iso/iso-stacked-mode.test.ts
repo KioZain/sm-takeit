@@ -29,6 +29,12 @@ function stacked(values: Record<string, unknown> = {}) {
 /** One dashed zone contributes two cell edges per cell plus its two far borders. */
 const SEGMENTS_PER_ZONE = 2 * ZONE * ZONE + ZONE + ZONE;
 
+/**
+ * A raised floor hands its near corner cell to the floor below, which already
+ * draws that rhombus: two cell edges and two border edges less.
+ */
+const SEGMENTS_PER_RAISED_ZONE = SEGMENTS_PER_ZONE - 4;
+
 describe("stacked grid mode", () => {
   it("reads one square zone and its floor count", () => {
     const state = stacked();
@@ -53,18 +59,38 @@ describe("stacked grid mode", () => {
     const offset = getIsoFloorOffset({ cols: ZONE, rows: ZONE }, readIsoSceneInput(stacked()).cellSize);
 
     expect(one.guide).toHaveLength(SEGMENTS_PER_ZONE);
-    expect(three.guide).toHaveLength(SEGMENTS_PER_ZONE * 3);
+    expect(three.guide).toHaveLength(SEGMENTS_PER_ZONE + 2 * SEGMENTS_PER_RAISED_ZONE);
     expect(three.field.width).toBeCloseTo(one.field.width);
     expect(three.field.height).toBeCloseTo(one.field.height + 2 * offset);
   });
 
-  it("overlaps neighbouring floors by exactly half a zone", () => {
+  it("overlaps neighbouring floors by exactly one cell", () => {
     const input = readIsoSceneInput(stacked());
     const zoneHeight = getFieldBounds(input.gridSize, input.cellSize).height;
     const stack = getIsoStack(input.gridSize, input.cellSize, input.floors);
 
     expect(stack.floors).toBe(3);
-    expect(stack.offset).toBeCloseTo(zoneHeight / 2);
+    expect(stack.offset).toBeCloseTo(((ZONE - 1) * input.cellSize) / 2);
+    // One cell of the zone's own height stays inside the floor below.
+    expect(zoneHeight - stack.offset).toBeCloseTo(input.cellSize / 2);
+  });
+
+  it("gives the shared corner cell to the floor below", () => {
+    const pieces = [at("maki", ZONE - 1, ZONE - 1, "1x1", 1), at("maki", 0, 0, "1x1", 0)];
+    const state = stacked({ [ISO_TARGETS.placements]: { items: pieces } });
+
+    // Both would stand in the same rhombus, so the raised floor gives it up.
+    const active = getIsoActivePlacements(state);
+    expect(active).toHaveLength(1);
+    expect(active[0]!.floor).toBe(0);
+    // The refused piece is stored, not lost.
+    expect(getIsoOffGridPlacements(state)).toHaveLength(1);
+
+    // The floor still owns every other cell.
+    const beside = stacked({
+      [ISO_TARGETS.placements]: { items: [at("maki", ZONE - 2, ZONE - 1, "1x1", 1)] },
+    });
+    expect(getIsoActivePlacements(beside)).toHaveLength(1);
   });
 
   it("places pieces on their own floor and keeps them apart", () => {
