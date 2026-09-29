@@ -57,28 +57,32 @@ function crossing(a0: { x: number; y: number }, a1: { x: number; y: number }, b0
 
 describe("stacked zones", () => {
   it("overlaps floors by exactly one cell", () => {
-    [2, 3].forEach((side) => {
+    [2, 3, 4].forEach((side) => {
       // A whole number of cell diagonals, so the tower keeps one grid.
       expect(getIsoFloorOffset(zone(side), CELL)).toBeCloseTo(((side - 1) * CELL) / 2);
     });
 
-    // Half the zone height is the same shift at zone 2 and misses the grid at zone 3.
+    // Half the zone height only means one cell at zone 2: at zone 3 it falls
+    // between cells, at zone 4 it would sink a whole cell too deep.
     expect(getIsoFloorOffset(zone(2), CELL)).toBeCloseTo(getFieldBounds(zone(2), CELL).height / 2);
-    expect(getIsoFloorOffset(zone(3), CELL)).not.toBeCloseTo(
-      getFieldBounds(zone(3), CELL).height / 2,
-    );
+    [3, 4].forEach((side) => {
+      expect(getIsoFloorOffset(zone(side), CELL)).not.toBeCloseTo(
+        getFieldBounds(zone(side), CELL).height / 2,
+      );
+    });
   });
 
   it("drops a floor's near corner cell onto the far corner cell below", () => {
-    const side = 3;
-    const stack = getIsoStack(zone(side), CELL, 2);
-    const seam = cellCorners(side - 1, side - 1).map((point) => liftPoint(point, 1, stack));
-    const below = cellCorners(0, 0);
+    [2, 3, 4].forEach((side) => {
+      const stack = getIsoStack(zone(side), CELL, 2);
+      const seam = cellCorners(side - 1, side - 1).map((point) => liftPoint(point, 1, stack));
+      const below = cellCorners(0, 0);
 
-    // The same rhombus, corner for corner: one cell of the tower, drawn once.
-    seam.forEach((point, index) => {
-      expect(point.x).toBeCloseTo(below[index]!.x);
-      expect(point.y).toBeCloseTo(below[index]!.y);
+      // The same rhombus, corner for corner: one cell of the tower, drawn once.
+      seam.forEach((point, index) => {
+        expect(point.x).toBeCloseTo(below[index]!.x);
+        expect(point.y).toBeCloseTo(below[index]!.y);
+      });
     });
   });
 
@@ -106,10 +110,15 @@ describe("stacked zones", () => {
   });
 
   it("leaves the shared cell to the floor that carries it", () => {
-    expect(getFloorCells(zone(3), 0)).toHaveLength(9);
-    expect(getFloorCells(zone(3), 1)).toHaveLength(8);
-    expect(getFloorCells(zone(3), 1).some((cell) => cell.col === 2 && cell.row === 2)).toBe(false);
-    expect(isFloorSeamCell(zone(3), 2, 2, 0)).toBe(false);
+    [3, 4].forEach((side) => {
+      const last = side - 1;
+      expect(getFloorCells(zone(side), 0)).toHaveLength(side * side);
+      expect(getFloorCells(zone(side), 1)).toHaveLength(side * side - 1);
+      expect(
+        getFloorCells(zone(side), 1).some((cell) => cell.col === last && cell.row === last),
+      ).toBe(false);
+      expect(isFloorSeamCell(zone(side), last, last, 0)).toBe(false);
+    });
   });
 
   it("grows the tower in height and never in width", () => {

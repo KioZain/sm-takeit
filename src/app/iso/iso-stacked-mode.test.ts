@@ -47,6 +47,37 @@ describe("stacked grid mode", () => {
     expect(getIsoGridSize(wide.values)).toEqual({ cols: ZONE, rows: ZONE });
   });
 
+  it("takes a four-cell zone and keeps growing only in height", () => {
+    const side = 4;
+    const of = (floors: number) =>
+      stacked({ [ISO_TARGETS.gridFloors]: floors, [ISO_TARGETS.gridZone]: side });
+    expect(getIsoGridSize(of(2).values)).toEqual({ cols: side, rows: side });
+
+    const one = buildIsoSceneModelFromState(of(1));
+    const two = buildIsoSceneModelFromState(of(2));
+    const segments = 2 * side * side + 2 * side;
+    const offset = getIsoFloorOffset(
+      { cols: side, rows: side },
+      readIsoSceneInput(of(2)).cellSize,
+    );
+
+    expect(one.guide).toHaveLength(segments);
+    expect(two.guide).toHaveLength(segments + (segments - 4));
+    expect(two.field.width).toBeCloseTo(one.field.width);
+    expect(two.field.height).toBeCloseTo(one.field.height + offset);
+  });
+
+  it("holds the zone inside the range the panel offers", () => {
+    expect(getIsoGridSize(stacked({ [ISO_TARGETS.gridZone]: 9 }).values)).toEqual({
+      cols: 4,
+      rows: 4,
+    });
+    expect(getIsoGridSize(stacked({ [ISO_TARGETS.gridZone]: 1 }).values)).toEqual({
+      cols: 2,
+      rows: 2,
+    });
+  });
+
   it("keeps the classic layout on one ground floor", () => {
     const classic = createState({ [ISO_TARGETS.gridMode]: "classic", [ISO_TARGETS.gridFloors]: 5 });
     expect(getIsoFloorCount(classic.values)).toBe(1);

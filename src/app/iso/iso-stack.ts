@@ -11,7 +11,7 @@ import {
 } from "./iso-geometry";
 
 /** A stacked field is always square; the zone side is the only size it takes. */
-export const ISO_ZONE_RANGE = { max: 3, min: 2 } as const;
+export const ISO_ZONE_RANGE = { max: 4, min: 2 } as const;
 
 export const ISO_FLOOR_RANGE = { max: 8, min: 1 } as const;
 

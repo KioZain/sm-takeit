@@ -163,7 +163,7 @@ export const appSchema = defineToolcraft({
               zone: {
                 applicability: isStackedGrid,
                 defaultValue: ISO_DEFAULTS.gridZone,
-                description: "Сторона квадратной зоны. Правило одно на все этажи: либо 2×2, либо 3×3.",
+                description: "Сторона квадратной зоны, от 2×2 до 4×4. Правило одно на все этажи.",
                 label: "Зона",
                 max: ISO_ZONE_RANGE.max,
                 min: ISO_ZONE_RANGE.min,
