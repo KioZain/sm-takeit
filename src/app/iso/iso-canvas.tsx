@@ -501,7 +501,12 @@ export function IsoCanvas(): React.JSX.Element | null {
         width={model.frame.width}
         xmlns="http://www.w3.org/2000/svg"
       >
-        <IsoSceneLayers appearance={{ showGrid: gridVisible }} imageUrls={urls} model={model} />
+        <IsoSceneLayers
+          animate
+          appearance={{ showGrid: gridVisible }}
+          imageUrls={urls}
+          model={model}
+        />
       </svg>
       <Button
         aria-label={`Поле сета, инструмент «${ISO_TOOL_NAMES[tool]}»`}

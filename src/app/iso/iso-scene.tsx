@@ -1,6 +1,13 @@
 import * as React from "react";
 
-import type { IsoColumnFace, IsoPoint, IsoSceneModel, IsoSegment } from "./iso-geometry";
+import type {
+  IsoColumnFace,
+  IsoPoint,
+  IsoSceneItem,
+  IsoSceneModel,
+  IsoSegment,
+} from "./iso-geometry";
+import styles from "./iso-scene.module.css";
 
 export const ISO_GRID_STROKE = "rgba(120, 120, 120, 0.8)";
 export const ISO_GRID_DASH = [4, 3] as const;
@@ -44,18 +51,90 @@ export function getIsoViewBox(model: IsoSceneModel): string {
 }
 
 type IsoSceneLayersProps = Readonly<{
+  /** Pop pieces in as they land and out as they are erased; still previews opt out. */
+  animate?: boolean;
   appearance: IsoSceneAppearance;
   /** Uploaded object id → presentation URL. */
   imageUrls: ReadonlyMap<string, string>;
   model: IsoSceneModel;
 }>;
 
+/** Pieces that were on the field a moment ago and are not any more. */
+export function getLeavingItems(
+  previous: readonly IsoSceneItem[],
+  current: readonly IsoSceneItem[],
+): IsoSceneItem[] {
+  const live = new Set(current.map((item) => item.placement.id));
+  return previous.filter((item) => !live.has(item.placement.id));
+}
+
+/**
+ * How long an erased piece stays on the board: the exit transition in
+ * `iso-scene.module.css` plus a little slack, so it is never cut short.
+ */
+const ISO_EXIT_MS = 360;
+
+/** Erased pieces stay on the board until they have played their way out. */
+function useLeavingPieces(
+  items: readonly IsoSceneItem[],
+  animate: boolean,
+): readonly IsoSceneItem[] {
+  const previous = React.useRef<readonly IsoSceneItem[]>(items);
+  const [leaving, setLeaving] = React.useState<readonly IsoSceneItem[]>([]);
+
+  React.useEffect(() => {
+    const gone = animate ? getLeavingItems(previous.current, items) : [];
+    previous.current = items;
+    if (gone.length === 0) return;
+    setLeaving((current) => [...current, ...gone]);
+    const settled = new Set(gone.map((item) => item.placement.id));
+    const timer = window.setTimeout(
+      () => setLeaving((current) => current.filter((item) => !settled.has(item.placement.id))),
+      ISO_EXIT_MS,
+    );
+    return () => window.clearTimeout(timer);
+  }, [animate, items]);
+
+  return leaving;
+}
+
+type IsoPieceProps = Readonly<{
+  item: IsoSceneItem;
+  /** Playing its way off the board; still previews pass neither flag. */
+  leaving?: boolean;
+  still?: boolean;
+  url: string;
+}>;
+
+function IsoPiece({ item, leaving, still, url }: IsoPieceProps): React.JSX.Element {
+  const rect = item.imageRect!;
+  const { anchor } = item.record;
+  return (
+    <image
+      className={still ? undefined : leaving ? styles.leaving : styles.piece}
+      data-iso-placement={item.placement.id}
+      height={rect.height}
+      href={url}
+      preserveAspectRatio="none"
+      style={{ transformOrigin: `${anchor.x * 100}% ${anchor.y * 100}%` }}
+      width={rect.width}
+      x={rect.x}
+      y={rect.y}
+    />
+  );
+}
+
 /** Dashed grid and column guide, then objects back to front. */
 export function IsoSceneLayers({
+  animate = false,
   appearance,
   imageUrls,
   model,
 }: IsoSceneLayersProps): React.JSX.Element {
+  const items = model.piecesVisible ? model.items : [];
+  const leaving = useLeavingPieces(items, animate);
+  const drawable = (item: IsoSceneItem) =>
+    item.imageRect !== null && imageUrls.has(item.placement.objectId);
   return (
     <>
       {appearance.showGrid ? (
@@ -74,22 +153,27 @@ export function IsoSceneLayers({
         </g>
       ) : null}
       <g data-iso-layer="objects">
-        {(model.piecesVisible ? model.items : []).map((item) => {
-          const url = imageUrls.get(item.placement.objectId);
-          return item.imageRect && url ? (
-            <image
-              data-iso-placement={item.placement.id}
-              height={item.imageRect.height}
-              href={url}
-              key={item.placement.id}
-              preserveAspectRatio="none"
-              width={item.imageRect.width}
-              x={item.imageRect.x}
-              y={item.imageRect.y}
-            />
-          ) : null;
-        })}
+        {items.filter(drawable).map((item) => (
+          <IsoPiece
+            item={item}
+            key={item.placement.id}
+            still={!animate}
+            url={imageUrls.get(item.placement.objectId)!}
+          />
+        ))}
       </g>
+      {leaving.length > 0 ? (
+        <g data-iso-layer="objects-leaving">
+          {leaving.filter(drawable).map((item) => (
+            <IsoPiece
+              item={item}
+              key={item.placement.id}
+              leaving
+              url={imageUrls.get(item.placement.objectId)!}
+            />
+          ))}
+        </g>
+      ) : null}
     </>
   );
 }

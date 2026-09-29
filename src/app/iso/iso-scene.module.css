@@ -1,0 +1,51 @@
+/**
+ * A piece lands with a squash: it arrives stretched, flattens against the
+ * board, then settles. Both axes ride one curve — they start on opposite sides
+ * of 1, so an overshoot stretches the roll and flattens it in the same move.
+ * The curve is the three-step shape sampled into a single easing, and the
+ * scaling runs from the object's own floor contact point, set per piece, so a
+ * roll grows out of its cell instead of drifting off it.
+ */
+.piece {
+  --iso-land: linear(
+    0, 0.4841, 0.8834, 1.1717, 1.3591, 1.475, 1.5454, 1.5879, 1.6133, 1.6281, 1.6363, 1.6405,
+    1.6424, 1.6429, 1.6348, 1.4786, 1.3432, 1.2359, 1.1577, 1.1038, 1.0675, 1.0434, 1.0274,
+    1.0169, 1.01, 1.0056, 1.0029, 1.0014, 1.0005, 1.0001, 1, 1
+  );
+
+  transform-box: fill-box;
+  transform: scale(1);
+  transition: transform 440ms var(--iso-land);
+}
+
+/**
+ * An erased piece keeps its place until it has been squashed into the board:
+ * the same language as the landing, played the other way.
+ */
+.leaving {
+  transform-box: fill-box;
+  transform: scale(1.22, 0.04);
+  pointer-events: none;
+  transition: transform 300ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+@starting-style {
+  .piece {
+    transform: scale(0.86, 1.14);
+  }
+
+  .leaving {
+    transform: scale(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .piece {
+    transition: none;
+  }
+
+  .leaving {
+    transform: scale(1, 0.04);
+    transition: transform 100ms ease;
+  }
+}
