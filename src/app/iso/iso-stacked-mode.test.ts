@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getFieldBounds } from "./iso-geometry";
+import { getFieldBounds, getFloorOverlap } from "./iso-geometry";
 import { getIsoFloorOffset, getIsoStack } from "./iso-stack";
 import {
   buildIsoSceneModelFromState,
@@ -26,14 +26,18 @@ function stacked(values: Record<string, unknown> = {}) {
   });
 }
 
-/** One dashed zone contributes two cell edges per cell plus its two far borders. */
-const SEGMENTS_PER_ZONE = 2 * ZONE * ZONE + ZONE + ZONE;
-
 /**
- * A raised floor hands its near corner cell to the floor below, which already
- * draws that rhombus: two cell edges and two border edges less.
+ * Dashed segments of one zone: two far edges per cell it owns plus the near
+ * border of the row and column that have nothing in front of them. A raised
+ * floor hands its near corner block to the floor below, which already draws
+ * those rhombi, so it contributes that much less.
  */
-const SEGMENTS_PER_RAISED_ZONE = SEGMENTS_PER_ZONE - 4;
+function zoneSegments(side: number, overlap = 0): number {
+  return 2 * (side * side - overlap * overlap) + 2 * (side - overlap);
+}
+
+const SEGMENTS_PER_ZONE = zoneSegments(ZONE);
+const SEGMENTS_PER_RAISED_ZONE = zoneSegments(ZONE, getFloorOverlap({ cols: ZONE, rows: ZONE }));
 
 describe("stacked grid mode", () => {
   it("reads one square zone and its floor count", () => {
@@ -55,16 +59,48 @@ describe("stacked grid mode", () => {
 
     const one = buildIsoSceneModelFromState(of(1));
     const two = buildIsoSceneModelFromState(of(2));
-    const segments = 2 * side * side + 2 * side;
-    const offset = getIsoFloorOffset(
-      { cols: side, rows: side },
-      readIsoSceneInput(of(2)).cellSize,
-    );
+    const square = { cols: side, rows: side };
+    const offset = getIsoFloorOffset(square, readIsoSceneInput(of(2)).cellSize);
 
-    expect(one.guide).toHaveLength(segments);
-    expect(two.guide).toHaveLength(segments + (segments - 4));
+    // Half of a four-cell zone is two whole cells, so the raised floor hands
+    // down a 2×2 block instead of the single cell of zones 2 and 3.
+    expect(getFloorOverlap(square)).toBe(2);
+    expect(one.guide).toHaveLength(zoneSegments(side));
+    expect(two.guide).toHaveLength(zoneSegments(side) + zoneSegments(side, 2));
     expect(two.field.width).toBeCloseTo(one.field.width);
     expect(two.field.height).toBeCloseTo(one.field.height + offset);
+  });
+
+  it("hands the whole shared block down at zone 4", () => {
+    const side = 4;
+    const step = side - 2;
+    const cells = [0, 1, 2, 3].map((index) => ({
+      col: step + (index % 2),
+      row: step + Math.floor(index / 2),
+    }));
+    const on = (floor: number) =>
+      stacked({
+        [ISO_TARGETS.gridFloors]: 2,
+        [ISO_TARGETS.gridZone]: side,
+        [ISO_TARGETS.placements]: {
+          items: cells.map((cell) => at("maki", cell.col, cell.row, "1x1", floor)),
+        },
+      });
+
+    // All four rhombi belong to the ground floor, so the raised floor takes none.
+    expect(getIsoActivePlacements(on(1))).toHaveLength(0);
+    expect(getIsoOffGridPlacements(on(1))).toHaveLength(4);
+    expect(getIsoActivePlacements(on(0))).toHaveLength(4);
+
+    // The raised floor still owns the other twelve cells.
+    const beside = stacked({
+      [ISO_TARGETS.gridFloors]: 2,
+      [ISO_TARGETS.gridZone]: side,
+      [ISO_TARGETS.placements]: {
+        items: [at("maki", step - 1, side - 1, "1x1", 1), at("maki", side - 1, step - 1, "1x1", 1)],
+      },
+    });
+    expect(getIsoActivePlacements(beside)).toHaveLength(2);
   });
 
   it("holds the zone inside the range the panel offers", () => {

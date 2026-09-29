@@ -182,10 +182,19 @@ export function getGridCells(gridSize: IsoGridSize): IsoCell[] {
 }
 
 /**
- * Stacked floors interlock by exactly one cell: the near corner cell of a
- * raised floor covers the same rhombus as the far corner cell of the floor
- * below it. That rhombus belongs to the lower floor, so every floor above the
- * ground gives its near corner up and the tower stays one even grid.
+ * Cells two neighbouring floors share: half the zone, rounded down to whole
+ * cells, so the shift between them always lands on the grid. An even zone
+ * overlaps by exactly half; zone 3 would need half a cell, so it keeps one.
+ */
+export function getFloorOverlap(gridSize: IsoGridSize): number {
+  return Math.floor(Math.min(gridSize.cols, gridSize.rows) / 2);
+}
+
+/**
+ * Stacked floors interlock by that block of cells: the near corner block of a
+ * raised floor covers the same rhombi as the far corner block of the floor
+ * below it. They belong to the lower floor, so every floor above the ground
+ * gives its near corner up and the tower stays one even grid.
  */
 export function isFloorSeamCell(
   gridSize: IsoGridSize,
@@ -193,7 +202,8 @@ export function isFloorSeamCell(
   row: number,
   floor: number,
 ): boolean {
-  return floor > 0 && col === gridSize.cols - 1 && row === gridSize.rows - 1;
+  const step = getFloorBackStep(gridSize);
+  return floor > 0 && col >= step && row >= step;
 }
 
 /**
@@ -203,10 +213,10 @@ export function isFloorSeamCell(
  * of layers, so higher on screen means further from the viewer.
  */
 export function getFloorBackStep(gridSize: IsoGridSize): number {
-  return Math.min(gridSize.cols, gridSize.rows) - 1;
+  return Math.min(gridSize.cols, gridSize.rows) - getFloorOverlap(gridSize);
 }
 
-/** Cells a floor owns: the whole grid on the ground, one cell less above it. */
+/** Cells a floor owns: the whole grid on the ground, the seam block less above it. */
 export function getFloorCells(gridSize: IsoGridSize, floor = 0): IsoCell[] {
   return getGridCells(gridSize).filter(
     (cell) => !isFloorSeamCell(gridSize, cell.col, cell.row, floor),

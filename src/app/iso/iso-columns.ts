@@ -138,12 +138,13 @@ export function getNearestColumn(point: IsoPoint, space: IsoColumnSpace): IsoCel
   const clamp = (value: number, count: number) => Math.min(count - 1, Math.max(0, Math.floor(value)));
   const cell = { col: clamp(x + y, space.gridSize.cols), row: clamp(y - x, space.gridSize.rows) };
   if (!isFloorSeamCell(space.gridSize, cell.col, cell.row, space.floor)) return cell;
-  // The seam cell belongs to the floor below, so a drag that reaches the near
+  // The seam block belongs to the floor below, so a drag that reaches the near
   // corner stops at the last cell this floor still owns on the nearer side.
+  const last = Math.max(0, getFloorBackStep(space.gridSize) - 1);
   const towardsCols = x >= 0;
   return {
-    col: towardsCols ? cell.col : Math.max(0, cell.col - 1),
-    row: towardsCols ? Math.max(0, cell.row - 1) : cell.row,
+    col: towardsCols ? cell.col : Math.min(cell.col, last),
+    row: towardsCols ? Math.min(cell.row, last) : cell.row,
   };
 }
 
