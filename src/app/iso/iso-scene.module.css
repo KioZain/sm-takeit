@@ -19,14 +19,16 @@
 }
 
 /**
- * An erased piece keeps its place until it has been squashed into the board:
- * the same language as the landing, played the other way.
+ * An erased piece is squashed into the board: the same language as the
+ * landing, played the other way. The curve accelerates, so the roll keeps its
+ * shape almost to the end and then goes flat within a frame or two — a piece
+ * that is on its way out must not linger as a smear.
  */
 .leaving {
   transform-box: fill-box;
-  transform: scale(1.22, 0.04);
+  transform: scale(1.15, 0);
   pointer-events: none;
-  transition: transform 300ms cubic-bezier(0.23, 1, 0.32, 1);
+  transition: transform 120ms cubic-bezier(0.55, 0, 1, 0.45);
 }
 
 @starting-style {
@@ -45,7 +47,7 @@
   }
 
   .leaving {
-    transform: scale(1, 0.04);
-    transition: transform 100ms ease;
+    transform: scale(1, 0);
+    transition: none;
   }
 }
