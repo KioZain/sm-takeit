@@ -321,6 +321,15 @@ function cellKey(col: number, row: number, floor: number): string {
   return `${floor}:${col}:${row}`;
 }
 
+/** Every floor cell a placement stands on, as keys two placements can be compared by. */
+export function getPlacementCellKeys(
+  placement: Pick<IsoPlacement, "col" | "floor" | "footprint" | "row">,
+): string[] {
+  return getPlacementCells(placement).map((cell) =>
+    cellKey(cell.col, cell.row, placement.floor),
+  );
+}
+
 export function footprintFitsGrid(
   col: number,
   row: number,
@@ -417,13 +426,9 @@ export function checkPlacement(
   if (rest.some((height) => !isSameHeight(height, first))) {
     return { ok: false, reason: "uneven" };
   }
-  const occupied = new Set(
-    placements.flatMap((placement) =>
-      getPlacementCells(placement).map((cell) => cellKey(cell.col, cell.row, placement.floor)),
-    ),
-  );
-  const blocked = getPlacementCells({ col, footprint, row }).some((cell) =>
-    occupied.has(cellKey(cell.col, cell.row, floor)),
+  const occupied = new Set(placements.flatMap(getPlacementCellKeys));
+  const blocked = getPlacementCellKeys({ col, floor, footprint, row }).some((key) =>
+    occupied.has(key),
   );
   return blocked ? { ok: false, reason: "occupied" } : { ok: true };
 }

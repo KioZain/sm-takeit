@@ -24,6 +24,17 @@ Missing performance intent means ordinary work. Performance evidence must be an 
 
 ## Decisions
 
+### Change `place-replaces-occupied`
+
+- Entry type: focused
+- Change ID: place-replaces-occupied
+- Request: «При повторном клике на клетку выбранная сушина заменяется… Если нажимаешь на поле на sushi_1 и выбрана sushi_2 то заместо sushi_1 встанет sushi_2.»
+- Changed owner: `src/app/iso/iso-replace.ts` (new), `src/app/iso/iso-field.ts`, `src/app/iso/iso-scene.tsx`.
+- User-visible result: Place over a busy cell replaces what stands there; the same piece put back gets a fresh id and replays its landing; the piece it displaced does not play an exit. Erase is unchanged.
+- Verification: 131 iso Vitest tests pass; `ai:check` passes (56 files); typecheck clean for `src/app`. In the running app, a click over another object swapped `media-2@0,0` → `media-1@0,0` with the piece count unchanged and no leaving node across 20 polled frames; re-placing the same object produced `media-1@3,2~1` then `~2`, each newcomer carrying a running 440ms landing transition at currentTime 0; an erase still held a leaving node for ~128ms.
+- Risks: Ids of re-placed pieces carry a `~N` suffix and are persisted; an undo step is recorded even when a re-place looks identical on screen.
+
+
 ### Renderer
 
 - Decision: No product renderer yet.

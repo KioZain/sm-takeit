@@ -5,7 +5,6 @@ import {
   eraseCellRect,
   findPlacementAtCell,
   getCellHeight,
-  placeObject,
   type IsoCell,
   type IsoCellRect,
   type IsoGridSize,
@@ -15,6 +14,7 @@ import {
   type IsoRect,
   type IsoSceneModel,
 } from "./iso-geometry";
+import { replaceObject } from "./iso-replace";
 import {
   getColumnAtPoint,
   getNearestColumn,
@@ -167,7 +167,9 @@ export function getIsoCellCommand(
 ): ToolcraftCommand | null {
   if (field.tool === "place") {
     if (!cell || !field.active) return null;
-    const next = placeObject(
+    // A busy cell is not a refusal: the click puts the chosen piece there and
+    // whatever stood on those cells gives them up.
+    const next = replaceObject(
       field.placements,
       field.active.id,
       cell.col,
@@ -177,7 +179,11 @@ export function getIsoCellCommand(
       getIsoPlacementHeights(field),
       field.floor,
     );
-    return next ? createIsoPlacementsCommand([...next, ...field.offGrid], "Поставить объект") : null;
+    if (!next) return null;
+    return createIsoPlacementsCommand(
+      [...next.placements, ...field.offGrid],
+      next.replaced.length === 0 ? "Поставить объект" : "Заменить объект",
+    );
   }
   if (field.tool !== "erase") return null;
   const target = getIsoEraseTarget(field, cell, point);

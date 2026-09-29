@@ -155,11 +155,13 @@ describe("sushi set acceptance", () => {
   it("tool mode decides what a cell click does", () => {
     const state = withPlacements([at("maki", 1, 1)]);
     const cell = { col: 1, row: 1 };
-    expect(getIsoCellCommand(fieldContext({ ...state, values: { ...state.values, [ISO_TARGETS.tool]: "place" } }), cell, null)).toBeNull();
+    // Placing onto a busy cell replaces what stands there; the same piece put
+    // back gets a fresh id so the board plays the landing again.
+    expect(placedIds(getIsoCellCommand(fieldContext({ ...state, values: { ...state.values, [ISO_TARGETS.tool]: "place" } }), cell, null))).toEqual(["maki@1,1~1"]);
     expect(placedIds(getIsoCellCommand(fieldContext({ ...state, values: { ...state.values, [ISO_TARGETS.tool]: "erase" } }), cell, null))).toEqual([]);
-    expect(getIsoCellCommand(fieldContext({ ...state, values: { ...state.values, [ISO_TARGETS.tool]: "select" } }), cell, null)).toBeNull();
+    // Only Place and Erase reach a cell command; the canvas answers Select and
+    // Height before it asks for one, and the field reads any other tool as Place.
     const height = fieldContext({ ...state, values: { ...state.values, [ISO_TARGETS.tool]: "height" } });
-    expect(getIsoCellCommand(height, cell, null)).toBeNull();
     const raised = applyCommand(state, getIsoHeightStepCommand(height, cell, 1));
     expect(heightMatrix(raised)[1]![1]).toBe(1);
   });
@@ -201,7 +203,9 @@ describe("sushi set acceptance", () => {
     });
     const field = fieldContext(state);
     expect(placedIds(getIsoCellCommand(field, { col: 0, row: 0 }, null))).toEqual(["nigiri@2,2", "maki@0,0"]);
-    expect(getIsoCellCommand(field, { col: 1, row: 1 }, null)).toBeNull();
+    // The 2x2 footprint reaches nigiri@2,2, so that piece gives up its cells.
+    expect(placedIds(getIsoCellCommand(field, { col: 1, row: 1 }, null))).toEqual(["maki@1,1"]);
+    // Off the grid stays a refusal: replacing frees cells, it does not add any.
     expect(getIsoCellCommand(field, { col: 5, row: 5 }, null)).toBeNull();
   });
 

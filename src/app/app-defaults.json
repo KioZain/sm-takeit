@@ -159,8 +159,8 @@
     },
     "canvas": {
       "offset": {
-        "x": -28.305860512820562,
-        "y": -2.812435978285187
+        "x": -61.30586051282056,
+        "y": 10.898375221714844
       },
       "size": {
         "height": 264,
@@ -199,7 +199,7 @@
       }
     },
     "timeline": {
-      "currentTimeSeconds": 1.8665999999999912,
+      "currentTimeSeconds": 3.599999999999987,
       "durationSeconds": 4,
       "expanded": false,
       "isLooping": true,

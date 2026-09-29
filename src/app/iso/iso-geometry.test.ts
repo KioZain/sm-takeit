@@ -7,6 +7,7 @@ import {
   filterRenderablePlacements,
   getCellAtPoint,
   getPlacementImageRect,
+  heightKey,
   placeObject,
   projectIso,
   sortPlacementsForDrawing,
@@ -15,6 +16,7 @@ import {
   type IsoPlacement,
   type IsoSceneInput,
 } from "./iso-geometry";
+import { replaceObject } from "./iso-replace";
 import { buildIsoSceneModel } from "./iso-scene-model";
 
 const record: IsoObjectRecord = {
@@ -76,6 +78,45 @@ describe("iso placement operations", () => {
       reason: "occupied",
     });
     expect(placeObject([], "roll", 4, 5, "2x1", SIX)).toHaveLength(1);
+  });
+
+  it("replaces whatever stands on the cells it is dropped on", () => {
+    const board = [at("maki", 1, 1), at("nigiri", 2, 1)];
+
+    // A different roll takes the cell, and the one that stood there is named.
+    const swap = replaceObject(board, "roll", 1, 1, "1x1", SIX)!;
+    expect(swap.placements.map((placement) => placement.id)).toEqual(["nigiri@2,1", "roll@1,1"]);
+    expect(swap.replaced.map((placement) => placement.id)).toEqual(["maki@1,1"]);
+
+    // A footprint reaching two pieces frees both, and anchors where it was put.
+    const wide = replaceObject(board, "roll", 1, 1, "2x1", SIX)!;
+    expect(wide.placements.map((placement) => placement.id)).toEqual(["roll@1,1"]);
+    expect(wide.replaced).toHaveLength(2);
+
+    // An empty cell is an ordinary placement: nothing replaced, plain id.
+    const plain = replaceObject(board, "roll", 4, 4, "1x1", SIX)!;
+    expect(plain.replaced).toEqual([]);
+    expect(plain.placements.at(-1)!.id).toBe("roll@4,4");
+  });
+
+  it("gives a re-placed piece an id of its own", () => {
+    const first = replaceObject([at("roll", 1, 1)], "roll", 1, 1, "1x1", SIX)!;
+    expect(first.placements.map((placement) => placement.id)).toEqual(["roll@1,1~1"]);
+
+    // Put back again and the id keeps moving, so the node is never reused.
+    const second = replaceObject(first.placements, "roll", 1, 1, "1x1", SIX)!;
+    expect(second.placements.map((placement) => placement.id)).toEqual(["roll@1,1~2"]);
+
+    // A footprint change at the same cell reproduces the id too, and counts.
+    const resized = replaceObject([at("roll", 1, 1, "2x2")], "roll", 1, 1, "1x1", SIX)!;
+    expect(resized.placements.map((placement) => placement.id)).toEqual(["roll@1,1~1"]);
+  });
+
+  it("still refuses a replacement that leaves the grid or straddles uneven columns", () => {
+    expect(replaceObject([at("roll", 5, 5)], "roll", 5, 5, "2x2", SIX)).toBeNull();
+
+    const heights = new Map([[heightKey(1, 1), 2]]);
+    expect(replaceObject([at("roll", 1, 1)], "roll", 1, 1, "2x2", SIX, heights)).toBeNull();
   });
 
   it("tiles a section with the footprint and leaves the remainder empty", () => {

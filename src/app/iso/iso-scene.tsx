@@ -1,11 +1,12 @@
 import * as React from "react";
 
-import type {
-  IsoColumnFace,
-  IsoPoint,
-  IsoSceneItem,
-  IsoSceneModel,
-  IsoSegment,
+import {
+  getPlacementCellKeys,
+  type IsoColumnFace,
+  type IsoPoint,
+  type IsoSceneItem,
+  type IsoSceneModel,
+  type IsoSegment,
 } from "./iso-geometry";
 import styles from "./iso-scene.module.css";
 
@@ -72,7 +73,15 @@ export function getLeavingItems(
   current: readonly IsoSceneItem[],
 ): IsoSceneItem[] {
   const live = new Set(current.map((item) => item.placement.id));
-  const gone = previous.filter((item) => !live.has(item.placement.id));
+  const taken = new Set(current.flatMap((item) => getPlacementCellKeys(item.placement)));
+  // A replaced piece never left the board: another one took its cells in the
+  // same move, and that arrival is the animation. Only a piece that leaves the
+  // cells empty behind it plays its way out.
+  const gone = previous.filter(
+    (item) =>
+      !live.has(item.placement.id) &&
+      !getPlacementCellKeys(item.placement).some((key) => taken.has(key)),
+  );
   return gone.length > ISO_EXIT_LIMIT ? [] : gone;
 }
 
