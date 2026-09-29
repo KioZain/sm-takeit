@@ -59,13 +59,21 @@ type IsoSceneLayersProps = Readonly<{
   model: IsoSceneModel;
 }>;
 
-/** Pieces that were on the field a moment ago and are not any more. */
+/**
+ * Most pieces a single edit can take off the board before it stops counting as
+ * erasing and starts counting as a different board — a preset, a cleared
+ * field, a resized grid. A new board arrives at once instead of playing out.
+ */
+const ISO_EXIT_LIMIT = 4;
+
+/** Pieces that were on the field a moment ago and are worth playing out. */
 export function getLeavingItems(
   previous: readonly IsoSceneItem[],
   current: readonly IsoSceneItem[],
 ): IsoSceneItem[] {
   const live = new Set(current.map((item) => item.placement.id));
-  return previous.filter((item) => !live.has(item.placement.id));
+  const gone = previous.filter((item) => !live.has(item.placement.id));
+  return gone.length > ISO_EXIT_LIMIT ? [] : gone;
 }
 
 /**
@@ -88,11 +96,12 @@ function useLeavingPieces(
     if (gone.length === 0) return;
     setLeaving((current) => [...current, ...gone]);
     const settled = new Set(gone.map((item) => item.placement.id));
-    const timer = window.setTimeout(
+    // Deliberately outside the effect's cleanup: `items` is a fresh array on
+    // every redraw, and a cleared timer would strand these pieces on screen.
+    window.setTimeout(
       () => setLeaving((current) => current.filter((item) => !settled.has(item.placement.id))),
       ISO_EXIT_MS,
     );
-    return () => window.clearTimeout(timer);
   }, [animate, items]);
 
   return leaving;

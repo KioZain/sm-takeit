@@ -33,10 +33,20 @@ describe("iso scene pieces", () => {
     expect(getLeavingItems(before, [...before, item("maki", 3, 3)])).toEqual([]);
   });
 
-  it("plays out every piece when the field is cleared", () => {
+  it("plays out a handful of erased pieces", () => {
     const before = [item("maki", 0, 0), item("nigiri", 1, 1)];
 
     expect(getLeavingItems(before, [])).toHaveLength(2);
     expect(getLeavingItems([], [])).toEqual([]);
+  });
+
+  it("cuts to a board that changed wholesale instead of playing it out", () => {
+    // A preset, a cleared field or a resized grid replaces the set at once;
+    // playing out a dozen pieces would leave the old ones smeared over the new.
+    const before = Array.from({ length: 9 }, (_, index) => item("maki", index, 0));
+
+    expect(getLeavingItems(before, [])).toEqual([]);
+    expect(getLeavingItems(before, before.slice(0, 5))).toHaveLength(4);
+    expect(getLeavingItems(before, before.slice(0, 4))).toEqual([]);
   });
 });
