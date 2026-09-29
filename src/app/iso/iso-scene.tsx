@@ -78,10 +78,10 @@ export function getLeavingItems(
 
 /**
  * How long an erased piece stays on the board: the exit transition in
- * `iso-scene.module.css` and no more. It ends flat, so an early frame off the
- * end costs nothing while a late one would leave a sliver lying there.
+ * `iso-scene.module.css` plus a frame, so the node goes only once the piece has
+ * already faded out and nothing is cut away while it is still visible.
  */
-const ISO_EXIT_MS = 140;
+const ISO_EXIT_MS = 150;
 
 /** Erased pieces stay on the board until they have played their way out. */
 function useLeavingPieces(

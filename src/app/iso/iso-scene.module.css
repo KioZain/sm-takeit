@@ -19,16 +19,20 @@
 }
 
 /**
- * An erased piece is squashed into the board: the same language as the
- * landing, played the other way. The curve accelerates, so the roll keeps its
- * shape almost to the end and then goes flat within a frame or two — a piece
- * that is on its way out must not linger as a smear.
+ * An erased piece is lifted off the board, not crushed into it. Both axes ride
+ * the same number, so the photograph keeps its proportions the whole way out
+ * and never reads as a stretched or sagging frame; the fade does the removing
+ * and the shrink only says which piece went. It retreats toward its own floor
+ * contact point, so the roll leaves through the cell it stood on.
  */
 .leaving {
   transform-box: fill-box;
-  transform: scale(1.15, 0);
+  opacity: 0;
+  transform: scale(0.86);
   pointer-events: none;
-  transition: transform 120ms cubic-bezier(0.55, 0, 1, 0.45);
+  transition:
+    opacity 130ms cubic-bezier(0.23, 1, 0.32, 1),
+    transform 130ms cubic-bezier(0.23, 1, 0.32, 1);
 }
 
 @starting-style {
@@ -37,6 +41,7 @@
   }
 
   .leaving {
+    opacity: 1;
     transform: scale(1);
   }
 }
@@ -46,8 +51,10 @@
     transition: none;
   }
 
+  /* The fade stays: it reads as removal without anything moving. */
   .leaving {
-    transform: scale(1, 0);
-    transition: none;
+    opacity: 0;
+    transform: scale(1);
+    transition: opacity 130ms ease;
   }
 }
