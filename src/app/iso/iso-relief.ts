@@ -3,6 +3,8 @@ import {
   getFloorCells,
   getGridCells,
   getCellHeight,
+  getTowerCell,
+  getTowerGridSize,
   getFootprintSpan,
   getPlacementCells,
   heightKey,
@@ -102,35 +104,17 @@ type PatternGeometry =
   | Readonly<{ kind: "alternate"; raised: boolean }>
   | Readonly<{ kind: "flat" }>;
 
-/** How far a cell is from the pattern's peak, or which alternate set it belongs to. */
 /**
- * A stacked field is one tower, so a running wave keeps climbing instead of
- * restarting on every floor. A static pattern repeats on each floor unchanged.
+ * How far a cell is from the pattern's peak, or which alternate set it belongs
+ * to. A stacked tower is one field: every cell is read at its place in the
+ * whole tower, so corners, edges and alternating sets run through the floors
+ * instead of restarting on each one.
  */
-function alongTower(
-  geometry: PatternGeometry,
-  floor: number,
-  gridSize: IsoGridSize,
-): PatternGeometry {
-  if (floor === 0) return geometry;
-  const span = floor * Math.max(gridSize.cols, gridSize.rows);
-  switch (geometry.kind) {
-    case "flat":
-      return geometry;
-    case "alternate":
-      return { ...geometry, raised: floor % 2 === 0 ? geometry.raised : !geometry.raised };
-    default:
-      return { ...geometry, distance: geometry.distance + span };
-  }
-}
-
 function getPatternGeometry(
   settings: IsoReliefSettings,
-  cell: IsoStackCell,
-  gridSize: IsoGridSize,
+  cell: IsoCell,
+  last: IsoCell,
 ): PatternGeometry {
-  // The far corner cell; on a rectangular field its col and row differ.
-  const last = { col: gridSize.cols - 1, row: gridSize.rows - 1 };
   switch (settings.pattern) {
     case "flat":
       return { kind: "flat" };
@@ -202,16 +186,27 @@ function getWaveLevel(geometry: PatternGeometry, max: number, wave: IsoReliefWav
   return Math.round(max * crest(phase + 0.5, wave.easing) * 1e6) / 1e6;
 }
 
+/** The far corner cell of the whole tower; on a rectangular field col and row differ. */
+function getTowerLast(gridSize: IsoGridSize, floors: number): IsoCell {
+  const tower = getTowerGridSize(gridSize, floors);
+  return { col: tower.cols - 1, row: tower.rows - 1 };
+}
+
 /** Pattern height of one cell in levels (whole levels unless a wave is running). */
 export function getReliefLevel(
   settings: IsoReliefSettings,
   cell: IsoStackCell,
   gridSize: IsoGridSize,
+  floors = 1,
 ): number {
   const max = Math.max(0, Math.round(settings.max));
-  const geometry = getPatternGeometry(settings, cell, gridSize);
+  const geometry = getPatternGeometry(
+    settings,
+    getTowerCell(gridSize, cell, cell.floor),
+    getTowerLast(gridSize, floors),
+  );
   if (settings.wave) {
-    return getWaveLevel(alongTower(geometry, cell.floor, gridSize), max, settings.wave);
+    return getWaveLevel(geometry, max, settings.wave);
   }
   switch (geometry.kind) {
     case "flat":
@@ -288,7 +283,7 @@ export function getPatternHeights(
   return new Map(
     getStackCells(gridSize, floors).map((cell): [string, number] => [
       heightKey(cell.col, cell.row, cell.floor),
-      getReliefLevel(settings, cell, gridSize),
+      getReliefLevel(settings, cell, gridSize, floors),
     ]),
   );
 }

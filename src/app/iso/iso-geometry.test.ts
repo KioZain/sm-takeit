@@ -119,16 +119,16 @@ describe("iso drawing order", () => {
     ).toEqual(["behind", "wide"]);
   });
 
-  it("draws a higher floor first, as the zone standing further back", () => {
+  it("draws a later floor last, as the zone standing further forward", () => {
     const zone = { cols: 3, rows: 3 };
-    // Floor 1 stands two cells back, so its near corner (1, 1) is still behind
-    // the ground floor's far corner (0, 0) — and its own far corner is last.
+    // Floor 1 stands two cells forward, so even its far corner is in front of
+    // everything on the first floor.
     const order = sortPlacementsForDrawing(
-      [at("ground", 0, 0), at("near", 1, 1, "1x1", 1), at("far", 0, 0, "1x1", 1)],
+      [at("ahead", 1, 1, "1x1", 1), at("first", 1, 2), at("seam", 0, 1, "1x1", 1)],
       zone,
     ).map((placement) => placement.objectId);
 
-    expect(order).toEqual(["far", "near", "ground"]);
+    expect(order).toEqual(["first", "seam", "ahead"]);
   });
 
   it("draws a 2x2 footprint after both neighbours it overlaps from the front", () => {

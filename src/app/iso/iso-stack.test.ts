@@ -79,7 +79,7 @@ describe("stacked zones", () => {
     );
   });
 
-  it("drops a floor's near corner block onto the far corner block below", () => {
+  it("drops a floor's far corner block onto the near corner block before it", () => {
     [2, 3, 4].forEach((side) => {
       const stack = getIsoStack(zone(side), CELL, 2);
       const overlap = getFloorOverlap(zone(side));
@@ -88,56 +88,56 @@ describe("stacked zones", () => {
       // Cell for cell, corner for corner: the shared block of the tower,
       // standing in one place and drawn once.
       getGridCells({ cols: overlap, rows: overlap }).forEach((cell) => {
-        const above = cellCorners(step + cell.col, step + cell.row).map((point) =>
+        const ahead = cellCorners(cell.col, cell.row).map((point) =>
           liftPoint(point, 1, stack),
         );
-        const below = cellCorners(cell.col, cell.row);
-        above.forEach((point, index) => {
-          expect(point.x).toBeCloseTo(below[index]!.x);
-          expect(point.y).toBeCloseTo(below[index]!.y);
+        const before = cellCorners(step + cell.col, step + cell.row);
+        ahead.forEach((point, index) => {
+          expect(point.x).toBeCloseTo(before[index]!.x);
+          expect(point.y).toBeCloseTo(before[index]!.y);
         });
       });
     });
   });
 
-  it("meets the lower zone at the side corners of the shared block", () => {
+  it("meets the zone before it at the side corners of the shared block", () => {
     [3, 4].forEach((side) => {
       const stack = getIsoStack(zone(side), CELL, 2);
       const overlap = getFloorOverlap(zone(side));
+      const step = side - overlap;
       const { bottom, left, right, top } = corners(side);
-      const upper = {
-        bottom: liftPoint(bottom, 1, stack),
+      const ahead = {
         left: liftPoint(left, 1, stack),
         right: liftPoint(right, 1, stack),
+        top: liftPoint(top, 1, stack),
       };
 
-      // The upper zone's lower-right edge meets the lower zone's upper-right
-      // edge at the right corner of the shared block — a grid vertex, as many
-      // cells in from the lower zone's top as the floors share.
-      const rightCorner = crossing(upper.right, upper.bottom, top, right)!;
-      expect(rightCorner.x).toBeCloseTo(projectIso(overlap, 0, CELL).x);
-      expect(rightCorner.y).toBeCloseTo(projectIso(overlap, 0, CELL).y);
-      expect(rightCorner.t).toBeCloseTo((side - overlap) / side);
+      // The next zone's upper-right edge meets this one's lower-right edge at
+      // the right corner of the shared block — a grid vertex, as many cells in
+      // from this zone's right corner as the floors share.
+      const rightCorner = crossing(ahead.top, ahead.right, right, bottom)!;
+      expect(rightCorner.x).toBeCloseTo(projectIso(side, step, CELL).x);
+      expect(rightCorner.y).toBeCloseTo(projectIso(side, step, CELL).y);
+      expect(rightCorner.t).toBeCloseTo(overlap / side);
 
-      const leftCorner = crossing(upper.left, upper.bottom, top, left)!;
-      expect(leftCorner.x).toBeCloseTo(projectIso(0, overlap, CELL).x);
-      expect(leftCorner.y).toBeCloseTo(projectIso(0, overlap, CELL).y);
+      const leftCorner = crossing(ahead.top, ahead.left, left, bottom)!;
+      expect(leftCorner.x).toBeCloseTo(projectIso(step, side, CELL).x);
+      expect(leftCorner.y).toBeCloseTo(projectIso(step, side, CELL).y);
     });
   });
 
   it("leaves the shared block to the floor that carries it", () => {
     [2, 3, 4].forEach((side) => {
       const overlap = getFloorOverlap(zone(side));
-      const step = side - overlap;
       expect(getFloorCells(zone(side), 0)).toHaveLength(side * side);
       expect(getFloorCells(zone(side), 1)).toHaveLength(side * side - overlap * overlap);
 
-      // The block is the near corner of the raised floor, and nothing on the ground.
+      // The block is the far corner of a later floor, and nothing on the first.
       expect(
-        getFloorCells(zone(side), 1).some((cell) => cell.col >= step && cell.row >= step),
+        getFloorCells(zone(side), 1).some((cell) => cell.col < overlap && cell.row < overlap),
       ).toBe(false);
-      expect(isFloorSeamCell(zone(side), side - 1, side - 1, 0)).toBe(false);
-      expect(isFloorSeamCell(zone(side), step - 1, side - 1, 1)).toBe(false);
+      expect(isFloorSeamCell(zone(side), 0, 0, 0)).toBe(false);
+      expect(isFloorSeamCell(zone(side), overlap, 0, 1)).toBe(false);
     });
   });
 
@@ -160,17 +160,17 @@ describe("stacked zones", () => {
     expect(getIsoFloors(stack)).toEqual([0]);
   });
 
-  it("picks the upper floor everywhere but the shared cell", () => {
+  it("picks the nearest floor everywhere but the shared block", () => {
     const stack = getIsoStack(zone(3), CELL, 3);
     const resolve = (local: IsoPoint, floor: number) => {
       const cell = getCellAtPoint(local, zone(3), CELL);
       return cell && !isFloorSeamCell(zone(3), cell.col, cell.row, floor) ? { cell, floor } : null;
     };
 
-    // The middle of the shared rhombus: cell (2, 2) of floor 1, cell (0, 0) of floor 0.
-    const shared = liftPoint(projectIso(2.5, 2.5, CELL), 1, stack);
+    // The middle of the shared rhombus: cell (0, 0) of floor 1, cell (2, 2) of floor 0.
+    const shared = liftPoint(projectIso(0.5, 0.5, CELL), 1, stack);
     expect(findIsoFloorAtPoint(shared, stack, resolve)).toEqual({
-      cell: { col: 0, row: 0 },
+      cell: { col: 2, row: 2 },
       floor: 0,
     });
 

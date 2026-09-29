@@ -2,6 +2,7 @@ import {
   getCellHeight,
   getFloorBackStep,
   getFloorCells,
+  getFloorOverlap,
   getFootprintSpan,
   isFloorSeamCell,
   isSameHeight,
@@ -44,18 +45,18 @@ function floorCells(space: IsoColumnSpace): IsoCell[] {
 
 /**
  * Every column of the tower in this floor's coordinates. A floor stands a
- * whole number of cells further back, so the tower shares one cell grid: the
- * columns of other floors take part in this floor's depth, neighbours and
+ * whole number of cells further forward, so the tower shares one cell grid:
+ * the columns of other floors take part in this floor's depth, neighbours and
  * occlusion exactly like its own.
  */
 function getTowerColumns(space: IsoColumnSpace): IsoLocalColumn[] {
   const step = getFloorBackStep(space.gridSize);
   return Array.from({ length: Math.max(1, space.floors) }, (_, floor) => floor).flatMap((floor) => {
-    const back = (floor - space.floor) * step;
+    const ahead = (floor - space.floor) * step;
     return getFloorCells(space.gridSize, floor).map((cell) => ({
-      col: cell.col - back,
+      col: cell.col + ahead,
       levels: getCellHeight(space.heights, cell.col, cell.row, floor),
-      row: cell.row - back,
+      row: cell.row + ahead,
     }));
   });
 }
@@ -63,6 +64,11 @@ function getTowerColumns(space: IsoColumnSpace): IsoLocalColumn[] {
 /** Height of the column at a local cell, or 0 where the tower has none (the ground). */
 function heightOrGround(columns: readonly IsoLocalColumn[], col: number, row: number): number {
   return columns.find((column) => column.col === col && column.row === row)?.levels ?? 0;
+}
+
+/** Whether any floor of the tower owns the local cell; the field ends where none does. */
+function hasTowerCell(columns: readonly IsoLocalColumn[], col: number, row: number): boolean {
+  return columns.some((column) => column.col === col && column.row === row);
 }
 
 /** Top outline of a footprint standing on columns of height `levels`. */
@@ -138,13 +144,13 @@ export function getNearestColumn(point: IsoPoint, space: IsoColumnSpace): IsoCel
   const clamp = (value: number, count: number) => Math.min(count - 1, Math.max(0, Math.floor(value)));
   const cell = { col: clamp(x + y, space.gridSize.cols), row: clamp(y - x, space.gridSize.rows) };
   if (!isFloorSeamCell(space.gridSize, cell.col, cell.row, space.floor)) return cell;
-  // The seam block belongs to the floor below, so a drag that reaches the near
-  // corner stops at the last cell this floor still owns on the nearer side.
-  const last = Math.max(0, getFloorBackStep(space.gridSize) - 1);
+  // The seam block belongs to the floor before, so a drag that reaches the far
+  // corner stops at the first cell this floor still owns on the nearer side.
+  const first = getFloorOverlap(space.gridSize);
   const towardsCols = x >= 0;
   return {
-    col: towardsCols ? cell.col : Math.min(cell.col, last),
-    row: towardsCols ? Math.min(cell.row, last) : cell.row,
+    col: towardsCols ? Math.max(cell.col, first) : cell.col,
+    row: towardsCols ? cell.row : Math.max(cell.row, first),
   };
 }
 
@@ -202,8 +208,10 @@ function getCellGuide(
   const top = getCellHeight(space.heights, col, row, space.floor);
   const nearCol = heightOrGround(columns, col + 1, row);
   const nearRow = heightOrGround(columns, col, row + 1);
-  const colIsBoundary = col + 1 >= space.gridSize.cols;
-  const rowIsBoundary = row + 1 >= space.gridSize.rows;
+  // The near edge belongs to the neighbour when there is one, wherever in the
+  // tower it lives; only a cell with nothing in front of it draws its own.
+  const colIsBoundary = !hasTowerCell(columns, col + 1, row);
+  const rowIsBoundary = !hasTowerCell(columns, col, row + 1);
   const colDiffers = !isSameHeight(nearCol, top);
   const rowDiffers = !isSameHeight(nearRow, top);
   const colFace = colDiffers && nearCol < top;

@@ -35,12 +35,12 @@ export type IsoStack = Readonly<{ floors: number; offset: number }>;
 export const ISO_SINGLE_FLOOR: IsoStack = Object.freeze({ floors: 1, offset: 0 });
 
 /**
- * Floors overlap by exactly one cell, so the shift is a whole number of cell
- * diagonals and the whole tower keeps a single grid. The near corner cell of a
- * floor then covers the far corner cell of the floor below, and their edges
- * meet at that cell's side corners — the marks where two zones join. Half the
- * zone height would only land on the grid at zone 2; at zone 3 it cuts every
- * cell below in two.
+ * Floors overlap by half a zone in whole cells, so the shift is a whole number
+ * of cell diagonals and the whole tower keeps a single grid. The far corner
+ * block of a floor then covers the near corner block of the floor before it,
+ * and their edges meet at that block's side corners — the marks where two
+ * zones join. Half the zone height in pixels would only land on the grid at an
+ * even zone; at zone 3 it cuts every cell in two.
  */
 export function getIsoFloorOffset(gridSize: IsoGridSize, cellSize: number): number {
   return (getFloorBackStep(gridSize) * cellSize) / 2;
@@ -62,9 +62,13 @@ export function getIsoFloors(stack: IsoStack): number[] {
   return Array.from({ length: stack.floors }, (_, floor) => floor);
 }
 
-/** Screen shift of a floor: up is negative, so higher floors sit higher. */
+/**
+ * Screen shift of a floor: down is positive, so the tower grows towards the
+ * viewer. The first floor keeps its place and each next one steps down in
+ * front of it.
+ */
 export function getIsoFloorShift(floor: number, stack: IsoStack): number {
-  return -floor * stack.offset;
+  return floor * stack.offset;
 }
 
 export function liftPoint(point: IsoPoint, floor: number, stack: IsoStack): IsoPoint {
@@ -99,8 +103,9 @@ export function getIsoStackBounds(
 }
 
 /**
- * The floor a screen point belongs to, searched from the ground up: a higher
- * floor stands further back, so the nearest one owns anything they share.
+ * The floor a screen point belongs to, searched from the last floor back: a
+ * later floor stands further forward, so the nearest one owns anything they
+ * share.
  */
 export function findIsoFloorAtPoint<T>(
   point: IsoPoint,
@@ -109,6 +114,7 @@ export function findIsoFloorAtPoint<T>(
 ): T | null {
   return (
     getIsoFloors(stack)
+      .reverse()
       .map((floor) => resolve(liftPoint(point, -floor, stack), floor))
       .find((hit): hit is T => hit !== null) ?? null
   );

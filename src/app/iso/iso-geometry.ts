@@ -191,10 +191,10 @@ export function getFloorOverlap(gridSize: IsoGridSize): number {
 }
 
 /**
- * Stacked floors interlock by that block of cells: the near corner block of a
- * raised floor covers the same rhombi as the far corner block of the floor
- * below it. They belong to the lower floor, so every floor above the ground
- * gives its near corner up and the tower stays one even grid.
+ * Stacked floors interlock by that block of cells: the far corner block of a
+ * floor covers the same rhombi as the near corner block of the floor before
+ * it. They belong to the earlier floor, so every floor after the first gives
+ * its far corner up and the tower stays one even grid.
  */
 export function isFloorSeamCell(
   gridSize: IsoGridSize,
@@ -202,18 +202,31 @@ export function isFloorSeamCell(
   row: number,
   floor: number,
 ): boolean {
-  const step = getFloorBackStep(gridSize);
-  return floor > 0 && col >= step && row >= step;
+  const overlap = getFloorOverlap(gridSize);
+  return floor > 0 && col < overlap && row < overlap;
 }
 
 /**
- * How many cells further back a floor stands than the one below it. Lifting a
- * zone by this many cell diagonals is, in isometric, the same as moving it
- * that far back along both axes: the tower is one receding field, not a pile
- * of layers, so higher on screen means further from the viewer.
+ * How many cells further forward a floor stands than the one before it.
+ * Dropping a zone by this many cell diagonals is, in isometric, the same as
+ * moving it that far forward along both axes: the tower is one field running
+ * into the distance, not a pile of layers, so the first floor lies furthest
+ * away and each next one comes towards the viewer.
  */
 export function getFloorBackStep(gridSize: IsoGridSize): number {
   return Math.min(gridSize.cols, gridSize.rows) - getFloorOverlap(gridSize);
+}
+
+/** Where a cell of a floor lands in the grid the whole tower spans. */
+export function getTowerCell(gridSize: IsoGridSize, cell: IsoCell, floor: number): IsoCell {
+  const ahead = floor * getFloorBackStep(gridSize);
+  return { col: cell.col + ahead, row: cell.row + ahead };
+}
+
+/** The grid the whole tower spans: one field, each floor a step further on. */
+export function getTowerGridSize(gridSize: IsoGridSize, floors = 1): IsoGridSize {
+  const ahead = Math.max(0, Math.round(floors) - 1) * getFloorBackStep(gridSize);
+  return { cols: gridSize.cols + ahead, rows: gridSize.rows + ahead };
 }
 
 /** Cells a floor owns: the whole grid on the ground, the seam block less above it. */
@@ -526,12 +539,12 @@ function spansOverlap(start0: number, length0: number, start1: number, length1: 
 
 /**
  * Where a piece stands once its floor is folded into depth: the floor is not a
- * layer above, it is the same zone `step` cells further back, so one order
+ * layer below, it is the same zone `step` cells further forward, so one order
  * covers the whole tower.
  */
 function toDepthCell(placement: IsoPlacement, step: number): IsoCell {
-  const back = placement.floor * step;
-  return { col: placement.col - back, row: placement.row - back };
+  const ahead = placement.floor * step;
+  return { col: placement.col + ahead, row: placement.row + ahead };
 }
 
 /** True when `far` must be painted before `near` to overlap correctly. */

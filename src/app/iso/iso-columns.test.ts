@@ -48,11 +48,11 @@ describe("iso columns", () => {
   });
 
   it("hides what a column of the floor in front covers on the floor behind", () => {
-    // Zone 3 of a two-floor tower: the ground floor stands two cells nearer,
-    // so its middle column rises straight in front of the upper floor.
-    const upper = (heights: Record<string, number>): IsoColumnSpace => ({
+    // Zone 3 of a two-floor tower, seen from the first floor: the second one
+    // stands two cells nearer, so its middle column rises straight in front.
+    const first = (heights: Record<string, number>): IsoColumnSpace => ({
       ...space(heights),
-      floor: 1,
+      floor: 0,
       floors: 2,
     });
     const drawn = (space: IsoColumnSpace, hideHidden: boolean) =>
@@ -61,24 +61,24 @@ describe("iso columns", () => {
           total + Math.hypot(segment.to.x - segment.from.x, segment.to.y - segment.from.y),
         0,
       );
-    const clear = drawn(upper({}), true);
+    const clear = drawn(first({}), true);
 
     // The column swallows the guide lines standing behind it.
-    expect(drawn(upper({ "1,1": 3 }), true)).toBeLessThan(clear - 100);
-    // Without hidden-line removal the upper floor keeps every line.
-    expect(drawn(upper({ "1,1": 3 }), false)).toBeCloseTo(clear);
+    expect(drawn(first({ "1,1@1": 3 }), true)).toBeLessThan(clear - 100);
+    // Without hidden-line removal the first floor keeps every line.
+    expect(drawn(first({ "1,1@1": 3 }), false)).toBeCloseTo(clear);
   });
 
-  it("reads the cell a floor shares with the one below as its neighbour", () => {
-    const upper = (heights: Record<string, number>): IsoColumnSpace => ({
+  it("reads a cell of the next floor as its own neighbour", () => {
+    const first = (heights: Record<string, number>): IsoColumnSpace => ({
       ...space(heights),
-      floor: 1,
+      floor: 0,
       floors: 2,
     });
-    // The ground floor's far cell is the upper floor's seam cell. Raised, it
-    // becomes a real neighbour, so the upper floor draws the edge between them.
-    const flat = getColumnGuide(upper({}), false).segments.length;
-    expect(getColumnGuide(upper({ "0,0": 2 }), false).segments.length).toBeGreaterThan(flat);
+    // The cell past the first floor's near corner belongs to the second floor.
+    // Raised, it is a neighbour like any other, so the edge between them shows.
+    const flat = getColumnGuide(first({}), false).segments.length;
+    expect(getColumnGuide(first({ "1,0@1": 2 }), false).segments.length).toBeGreaterThan(flat);
   });
 
   it("hits the raised front column before the ground behind it", () => {

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 
-import { getFieldBounds, getFloorOverlap } from "./iso-geometry";
+import { getFieldBounds, getFloorCells, getFloorOverlap, heightKey } from "./iso-geometry";
 import { getIsoFloorOffset, getIsoStack } from "./iso-stack";
 import {
   buildIsoSceneModelFromState,
@@ -39,6 +39,38 @@ function zoneSegments(side: number, overlap = 0): number {
 const SEGMENTS_PER_ZONE = zoneSegments(ZONE);
 const SEGMENTS_PER_RAISED_ZONE = zoneSegments(ZONE, getFloorOverlap({ cols: ZONE, rows: ZONE }));
 
+/** A slope the stacked relief cap leaves alone, so both fields keep its peak. */
+const SLOPE = {
+  [ISO_TARGETS.reliefCorner]: "top",
+  [ISO_TARGETS.reliefMax]: 2,
+  [ISO_TARGETS.reliefPattern]: "corner-diagonal",
+  [ISO_TARGETS.reliefStep]: 4,
+};
+
+/**
+ * Every column of a three-floor tower stands as high as the cell it lands on
+ * in a single field of the tower's span: one surface, one pattern, no restart
+ * at a floor.
+ */
+function expectsOneField(relief: Record<string, unknown>): void {
+  const square = { cols: ZONE, rows: ZONE };
+  const step = ZONE - getFloorOverlap(square);
+  const span = ZONE + 2 * step;
+  const tower = getIsoReliefLayers(stacked(relief)).heights;
+  const field = getIsoReliefLayers(
+    createState({ ...relief, [ISO_TARGETS.gridCols]: span, [ISO_TARGETS.gridRows]: span }),
+  ).heights;
+
+  [0, 1, 2].forEach((floor) => {
+    getFloorCells(square, floor).forEach((cell) => {
+      const ahead = floor * step;
+      expect(tower.get(heightKey(cell.col, cell.row, floor)) ?? 0).toBeCloseTo(
+        field.get(heightKey(cell.col + ahead, cell.row + ahead)) ?? 0,
+      );
+    });
+  });
+}
+
 describe("stacked grid mode", () => {
   it("reads one square zone and its floor count", () => {
     const state = stacked();
@@ -73,10 +105,9 @@ describe("stacked grid mode", () => {
 
   it("hands the whole shared block down at zone 4", () => {
     const side = 4;
-    const step = side - 2;
     const cells = [0, 1, 2, 3].map((index) => ({
-      col: step + (index % 2),
-      row: step + Math.floor(index / 2),
+      col: index % 2,
+      row: Math.floor(index / 2),
     }));
     const on = (floor: number) =>
       stacked({
@@ -87,17 +118,17 @@ describe("stacked grid mode", () => {
         },
       });
 
-    // All four rhombi belong to the ground floor, so the raised floor takes none.
+    // All four rhombi belong to the first floor, so the later one takes none.
     expect(getIsoActivePlacements(on(1))).toHaveLength(0);
     expect(getIsoOffGridPlacements(on(1))).toHaveLength(4);
     expect(getIsoActivePlacements(on(0))).toHaveLength(4);
 
-    // The raised floor still owns the other twelve cells.
+    // The later floor still owns the other twelve cells.
     const beside = stacked({
       [ISO_TARGETS.gridFloors]: 2,
       [ISO_TARGETS.gridZone]: side,
       [ISO_TARGETS.placements]: {
-        items: [at("maki", step - 1, side - 1, "1x1", 1), at("maki", side - 1, step - 1, "1x1", 1)],
+        items: [at("maki", 2, 0, "1x1", 1), at("maki", 0, 2, "1x1", 1)],
       },
     });
     expect(getIsoActivePlacements(beside)).toHaveLength(2);
@@ -131,6 +162,21 @@ describe("stacked grid mode", () => {
     expect(three.field.height).toBeCloseTo(one.field.height + 2 * offset);
   });
 
+  it("grows downwards and leaves the floors already there in place", () => {
+    const of = (floors: number) =>
+      buildIsoSceneModelFromState(stacked({ [ISO_TARGETS.gridFloors]: floors }));
+    const one = of(1);
+
+    // The first zone keeps its place: the field starts at the same top edge
+    // and every added floor only reaches further down, towards the viewer.
+    [2, 3, 8].forEach((floors) => {
+      const grown = of(floors);
+      expect(grown.field.y).toBeCloseTo(one.field.y);
+      expect(grown.field.x).toBeCloseTo(one.field.x);
+      expect(grown.field.height).toBeGreaterThan(one.field.height);
+    });
+  });
+
   it("overlaps neighbouring floors by exactly one cell", () => {
     const input = readIsoSceneInput(stacked());
     const zoneHeight = getFieldBounds(input.gridSize, input.cellSize).height;
@@ -142,11 +188,11 @@ describe("stacked grid mode", () => {
     expect(zoneHeight - stack.offset).toBeCloseTo(input.cellSize / 2);
   });
 
-  it("gives the shared corner cell to the floor below", () => {
-    const pieces = [at("maki", ZONE - 1, ZONE - 1, "1x1", 1), at("maki", 0, 0, "1x1", 0)];
+  it("gives the shared corner cell to the floor before it", () => {
+    const pieces = [at("maki", 0, 0, "1x1", 1), at("maki", ZONE - 1, ZONE - 1, "1x1", 0)];
     const state = stacked({ [ISO_TARGETS.placements]: { items: pieces } });
 
-    // Both would stand in the same rhombus, so the raised floor gives it up.
+    // Both would stand in the same rhombus, so the later floor gives it up.
     const active = getIsoActivePlacements(state);
     expect(active).toHaveLength(1);
     expect(active[0]!.floor).toBe(0);
@@ -155,7 +201,7 @@ describe("stacked grid mode", () => {
 
     // The floor still owns every other cell.
     const beside = stacked({
-      [ISO_TARGETS.placements]: { items: [at("maki", ZONE - 2, ZONE - 1, "1x1", 1)] },
+      [ISO_TARGETS.placements]: { items: [at("maki", 1, 0, "1x1", 1)] },
     });
     expect(getIsoActivePlacements(beside)).toHaveLength(1);
   });
@@ -169,47 +215,47 @@ describe("stacked grid mode", () => {
     const model = buildIsoSceneModelFromState(state);
     expect(model.items).toHaveLength(2);
     const [back, front] = model.items;
-    expect(back!.placement.floor).toBe(2);
-    expect(front!.placement.floor).toBe(0);
-    // The upper piece is drawn higher on screen and first, being further back.
+    expect(back!.placement.floor).toBe(0);
+    expect(front!.placement.floor).toBe(2);
+    // The first floor lies furthest away, so it is drawn higher up and first.
     expect(back!.imageRect!.y).toBeLessThan(front!.imageRect!.y);
   });
 
   it("draws the tower as one receding field, nearest piece last", () => {
-    // One piece per floor: the far corner of the top floor, the near corner of
-    // the ground floor, and a middle floor cell between them.
+    // One piece per floor: the far corner of the first floor, the near corner
+    // of the last one, and a middle floor cell between them.
     const pieces = [
-      at("maki", 0, 0, "1x1", 2),
+      at("maki", ZONE - 1, ZONE - 1, "1x1", 2),
       at("nigiri", 1, 1, "1x1", 1),
-      at("maki", ZONE - 1, ZONE - 1, "1x1", 0),
+      at("maki", 0, 0, "1x1", 0),
     ];
     const state = stacked({ [ISO_TARGETS.placements]: { items: pieces } });
     const items = buildIsoSceneModelFromState(state).items;
 
     // Painted from the furthest zone to the nearest, exactly like one field.
-    expect(items.map((item) => item.placement.floor)).toEqual([2, 1, 0]);
+    expect(items.map((item) => item.placement.floor)).toEqual([0, 1, 2]);
     // Each next piece is drawn lower on screen, so it overlaps the one before.
     const tops = items.map((item) => item.imageRect!.y);
     expect(tops[0]!).toBeLessThan(tops[1]!);
     expect(tops[1]!).toBeLessThan(tops[2]!);
   });
 
-  it("keeps a lower floor in front of the floor above at the seam", () => {
-    // The ground floor's far corner cell is the rhombus the floor above gave
-    // up, so it must be painted after that floor's nearest pieces.
+  it("keeps a later floor in front of the one before it at the seam", () => {
+    // The last floor's far corner cell is the rhombus it gave up, so the
+    // pieces it does own there must be painted after the earlier floor's.
     const pieces = [
-      at("maki", ZONE - 2, ZONE - 1, "1x1", 1),
-      at("nigiri", ZONE - 1, ZONE - 2, "1x1", 1),
-      at("maki", 0, 0, "1x1", 0),
+      at("maki", ZONE - 1, ZONE - 1, "1x1", 0),
+      at("nigiri", 1, 0, "1x1", 1),
+      at("maki", 0, 1, "1x1", 1),
     ];
     const state = stacked({ [ISO_TARGETS.placements]: { items: pieces } });
     const items = buildIsoSceneModelFromState(state).items;
 
-    expect(items.map((item) => item.placement.floor)).toEqual([1, 1, 0]);
+    expect(items.map((item) => item.placement.floor)).toEqual([0, 1, 1]);
   });
 
   it("stores pieces of floors above the current count and brings them back", () => {
-    const pieces = [at("maki", 0, 0, "1x1", 4)];
+    const pieces = [at("maki", ZONE - 1, ZONE - 1, "1x1", 4)];
     const short = stacked({ [ISO_TARGETS.gridFloors]: 2, [ISO_TARGETS.placements]: { items: pieces } });
     const tall = stacked({ [ISO_TARGETS.gridFloors]: 6, [ISO_TARGETS.placements]: { items: pieces } });
 
@@ -232,14 +278,23 @@ describe("stacked grid mode", () => {
     expect(new Set([cornerOf(0), cornerOf(1), cornerOf(2)]).size).toBeGreaterThan(1);
   });
 
-  it("repeats a static relief on every floor and keys it per floor", () => {
-    const state = stacked({ [ISO_TARGETS.reliefMax]: 3, [ISO_TARGETS.reliefPattern]: "corner-rings" });
-    const { heights } = getIsoReliefLayers(state);
+  it("runs one pattern over the whole tower instead of repeating it per floor", () => {
+    const { heights } = getIsoReliefLayers(stacked(SLOPE));
 
-    // A still pattern is the same on each floor, stored under its own key.
-    expect(heights.get("0,0")).toBe(heights.get("0,0@2"));
-    expect(heights.get("0,0")).toBeGreaterThan(0);
-    expect([...heights.keys()].some((key) => key.endsWith("@2"))).toBe(true);
+    // The slope is measured from the corner of the whole tower, so the same
+    // cell sits further down it on every next floor instead of starting over.
+    expect(heights.get("1,1")).toBe(2);
+    expect(heights.get("2,2")).toBe(1);
+    expect(heights.get("1,1@2") ?? 0).toBe(0);
+    expectsOneField(SLOPE);
+  });
+
+  it("waves over the tower exactly as over one field of the same span", () => {
+    expectsOneField({
+      ...SLOPE,
+      [ISO_TARGETS.reliefWave]: true,
+      [ISO_TARGETS.reliefWaveLength]: 6,
+    });
   });
 
   it("caps a stacked relief at the gap between floors", () => {

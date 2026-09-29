@@ -180,7 +180,7 @@ export const appSchema = defineToolcraft({
                 applicability: isStackedGrid,
                 defaultValue: ISO_DEFAULTS.gridFloors,
                 description:
-                  "Сколько зон стоит одна над другой. Соседние сцепляются углом в половину зоны, по целым клеткам, поэтому плитка остаётся ровной.",
+                  "Сколько зон идёт одна за другой. Первая остаётся на месте, каждая следующая выходит вперёд и вниз, сцепляясь углом в половину зоны по целым клеткам.",
                 label: "Этажей",
                 max: ISO_FLOOR_RANGE.max,
                 min: ISO_FLOOR_RANGE.min,
