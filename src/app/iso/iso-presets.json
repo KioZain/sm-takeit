@@ -217,7 +217,7 @@
   },
   {
     "id": "built-in-medium-24",
-    "name": "Средний сет (24 шт)",
+    "name": "Средний сет_верт (16 шт)",
     "objects": [
       {
         "anchor": {
@@ -275,145 +275,61 @@
       },
       {
         "anchor": {
-          "x": 0.5,
-          "y": 0.9
+          "x": 0.494,
+          "y": 0.65
         },
-        "footprint": "1x1",
+        "footprint": "1x2",
         "name": "sushi_long_1",
         "scale": 1
       },
       {
         "anchor": {
-          "x": 0.5,
-          "y": 0.9
+          "x": 0.568,
+          "y": 0.617
         },
-        "footprint": "1x1",
+        "footprint": "1x2",
         "name": "sushi_long_2",
         "scale": 1
       }
     ],
     "placements": [
       {
-        "col": 5,
+        "col": 1,
         "floor": 0,
         "footprint": "1x1",
-        "objectName": "sushi_5",
-        "row": 0
-      },
-      {
-        "col": 5,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_5",
-        "row": 1
-      },
-      {
-        "col": 5,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_5",
-        "row": 2
-      },
-      {
-        "col": 5,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_5",
-        "row": 3
-      },
-      {
-        "col": 4,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_4",
-        "row": 0
-      },
-      {
-        "col": 4,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_4",
-        "row": 1
-      },
-      {
-        "col": 4,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_4",
-        "row": 2
-      },
-      {
-        "col": 4,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_4",
-        "row": 3
-      },
-      {
-        "col": 3,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_6",
-        "row": 0
-      },
-      {
-        "col": 3,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_6",
-        "row": 1
-      },
-      {
-        "col": 3,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_6",
-        "row": 2
-      },
-      {
-        "col": 3,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_6",
-        "row": 3
-      },
-      {
-        "col": 2,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_3",
+        "objectName": "sushi_1",
         "row": 0
       },
       {
         "col": 2,
         "floor": 0,
         "footprint": "1x1",
-        "objectName": "sushi_3",
+        "objectName": "sushi_1",
         "row": 1
       },
       {
-        "col": 2,
+        "col": 0,
         "floor": 0,
         "footprint": "1x1",
-        "objectName": "sushi_3",
-        "row": 2
-      },
-      {
-        "col": 2,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_3",
-        "row": 3
+        "objectName": "sushi_4",
+        "row": 0
       },
       {
         "col": 1,
         "floor": 0,
         "footprint": "1x1",
-        "objectName": "sushi_2",
-        "row": 0
+        "objectName": "sushi_4",
+        "row": 1
       },
       {
-        "col": 1,
+        "col": 2,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_4",
+        "row": 2
+      },
+      {
+        "col": 0,
         "floor": 0,
         "footprint": "1x1",
         "objectName": "sushi_2",
@@ -427,7 +343,105 @@
         "row": 2
       },
       {
+        "col": 0,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 2
+      },
+      {
+        "col": 2,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_1",
+        "row": 0
+      },
+      {
         "col": 1,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_4",
+        "row": 1
+      },
+      {
+        "col": 2,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_4",
+        "row": 2
+      },
+      {
+        "col": 0,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_6",
+        "row": 1
+      },
+      {
+        "col": 0,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_6",
+        "row": 2
+      },
+      {
+        "col": 1,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_6",
+        "row": 2
+      },
+      {
+        "col": 1,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_3",
+        "row": 0
+      },
+      {
+        "col": 2,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_3",
+        "row": 1
+      },
+      {
+        "col": 2,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_3",
+        "row": 0
+      },
+      {
+        "col": 3,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_1",
+        "row": 2
+      },
+      {
+        "col": 3,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_6",
+        "row": 1
+      },
+      {
+        "col": 3,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_6",
+        "row": 0
+      },
+      {
+        "col": 3,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_4",
+        "row": 3
+      },
+      {
+        "col": 2,
         "floor": 0,
         "footprint": "1x1",
         "objectName": "sushi_2",
@@ -437,38 +451,26 @@
         "col": 0,
         "floor": 0,
         "footprint": "1x1",
-        "objectName": "sushi_1",
-        "row": 0
+        "objectName": "sushi_3",
+        "row": 3
       },
       {
-        "col": 0,
+        "col": 1,
         "floor": 0,
         "footprint": "1x1",
-        "objectName": "sushi_1",
-        "row": 1
-      },
-      {
-        "col": 0,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_1",
-        "row": 2
-      },
-      {
-        "col": 0,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_1",
+        "objectName": "sushi_3",
         "row": 3
       }
     ],
-    "savedAt": "2026-09-25T10:02:06.607Z",
+    "savedAt": "2026-09-29T15:59:37.961Z",
     "values": {
-      "grid.mode": "classic",
-      "grid.cols": 6,
+      "grid.mode": "stacked",
+      "grid.cols": 4,
       "grid.rows": 4,
+      "grid.zone": 3,
+      "grid.floors": 2,
       "grid.cellSize": 72,
-      "grid.levelHeight": 24,
+      "grid.levelHeight": 20,
       "grid.visible": true,
       "relief.pattern": "corner-diagonal",
       "relief.corner": "top",
@@ -478,7 +480,7 @@
       "relief.wave": true,
       "relief.waveDirection": "outward",
       "relief.waveEasing": "sine",
-      "relief.waveLength": 7,
+      "relief.waveLength": 9,
       "output.crop": "field",
       "output.padding": 24,
       "output.showPieces": true,
@@ -977,7 +979,7 @@
   },
   {
     "id": "preset-mugpcld7",
-    "name": "Большой сет (40)",
+    "name": "Большой сет_верт (40)",
     "objects": [
       {
         "anchor": {
@@ -1035,25 +1037,277 @@
       },
       {
         "anchor": {
-          "x": 0.494,
-          "y": 0.65
+          "x": 0.52,
+          "y": 0.632
         },
         "footprint": "1x2",
         "name": "sushi_long_1",
-        "scale": 1
+        "scale": 0.95
       },
       {
         "anchor": {
-          "x": 0.568,
-          "y": 0.617
+          "x": 0.528,
+          "y": 0.647
         },
         "footprint": "1x2",
         "name": "sushi_long_2",
-        "scale": 1
+        "scale": 0.95
       }
     ],
     "placements": [
       {
+        "col": 3,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_4",
+        "row": 0
+      },
+      {
+        "col": 3,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_4",
+        "row": 1
+      },
+      {
+        "col": 3,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_4",
+        "row": 2
+      },
+      {
+        "col": 3,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_4",
+        "row": 3
+      },
+      {
+        "col": 2,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_5",
+        "row": 0
+      },
+      {
+        "col": 2,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_5",
+        "row": 1
+      },
+      {
+        "col": 2,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_5",
+        "row": 2
+      },
+      {
+        "col": 2,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_5",
+        "row": 3
+      },
+      {
+        "col": 1,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_6",
+        "row": 0
+      },
+      {
+        "col": 1,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_6",
+        "row": 1
+      },
+      {
+        "col": 1,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_6",
+        "row": 2
+      },
+      {
+        "col": 1,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_6",
+        "row": 3
+      },
+      {
+        "col": 0,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 0
+      },
+      {
+        "col": 0,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 1
+      },
+      {
+        "col": 0,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 2
+      },
+      {
+        "col": 0,
+        "floor": 0,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 3
+      },
+      {
+        "col": 3,
+        "floor": 2,
+        "footprint": "1x2",
+        "objectName": "sushi_long_2",
+        "row": 0
+      },
+      {
+        "col": 3,
+        "floor": 2,
+        "footprint": "1x2",
+        "objectName": "sushi_long_2",
+        "row": 2
+      },
+      {
+        "col": 2,
+        "floor": 2,
+        "footprint": "1x2",
+        "objectName": "sushi_long_1",
+        "row": 0
+      },
+      {
+        "col": 2,
+        "floor": 2,
+        "footprint": "1x2",
+        "objectName": "sushi_long_1",
+        "row": 2
+      },
+      {
+        "col": 2,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_3",
+        "row": 0
+      },
+      {
+        "col": 2,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_3",
+        "row": 1
+      },
+      {
+        "col": 2,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_3",
+        "row": 2
+      },
+      {
+        "col": 2,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_3",
+        "row": 3
+      },
+      {
+        "col": 3,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 1
+      },
+      {
+        "col": 3,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 0
+      },
+      {
+        "col": 3,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 2
+      },
+      {
+        "col": 3,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 3
+      },
+      {
+        "col": 0,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_1",
+        "row": 2
+      },
+      {
+        "col": 1,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_1",
+        "row": 2
+      },
+      {
+        "col": 1,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_1",
+        "row": 3
+      },
+      {
+        "col": 0,
+        "floor": 1,
+        "footprint": "1x1",
+        "objectName": "sushi_1",
+        "row": 3
+      },
+      {
+        "col": 0,
+        "floor": 2,
+        "footprint": "1x1",
+        "objectName": "sushi_3",
+        "row": 2
+      },
+      {
+        "col": 0,
+        "floor": 2,
+        "footprint": "1x1",
+        "objectName": "sushi_3",
+        "row": 3
+      },
+      {
+        "col": 1,
+        "floor": 2,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 2
+      },
+      {
+        "col": 1,
+        "floor": 2,
+        "footprint": "1x1",
+        "objectName": "sushi_2",
+        "row": 3
+      },
+      {
         "col": 5,
         "floor": 0,
         "footprint": "1x2",
@@ -1117,123 +1371,11 @@
         "row": 0
       },
       {
-        "col": 3,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_4",
-        "row": 0
-      },
-      {
-        "col": 3,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_4",
-        "row": 1
-      },
-      {
-        "col": 3,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_4",
-        "row": 2
-      },
-      {
-        "col": 3,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_4",
-        "row": 3
-      },
-      {
-        "col": 2,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_5",
-        "row": 0
-      },
-      {
-        "col": 2,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_5",
-        "row": 1
-      },
-      {
-        "col": 2,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_5",
-        "row": 2
-      },
-      {
-        "col": 2,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_5",
-        "row": 3
-      },
-      {
-        "col": 1,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_6",
-        "row": 0
-      },
-      {
-        "col": 1,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_6",
-        "row": 1
-      },
-      {
-        "col": 1,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_6",
-        "row": 2
-      },
-      {
-        "col": 1,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_6",
-        "row": 3
-      },
-      {
         "col": 2,
         "floor": 0,
         "footprint": "1x2",
         "objectName": "sushi_long_2",
         "row": 4
-      },
-      {
-        "col": 0,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_2",
-        "row": 0
-      },
-      {
-        "col": 0,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_2",
-        "row": 1
-      },
-      {
-        "col": 0,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_2",
-        "row": 2
-      },
-      {
-        "col": 0,
-        "floor": 0,
-        "footprint": "1x1",
-        "objectName": "sushi_2",
-        "row": 3
       },
       {
         "col": 4,
@@ -1278,15 +1420,17 @@
         "row": 5
       }
     ],
-    "savedAt": "2026-09-25T10:06:19.784Z",
+    "savedAt": "2026-09-29T16:02:53.496Z",
     "values": {
-      "grid.mode": "classic",
+      "grid.mode": "stacked",
       "grid.cols": 6,
       "grid.rows": 6,
+      "grid.zone": 4,
+      "grid.floors": 3,
       "grid.cellSize": 72,
       "grid.levelHeight": 20,
       "grid.visible": true,
-      "relief.pattern": "alternate-cols",
+      "relief.pattern": "corner-diagonal",
       "relief.corner": "top",
       "relief.edge": "top-right",
       "relief.max": 1,
