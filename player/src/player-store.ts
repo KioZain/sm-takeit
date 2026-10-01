@@ -45,16 +45,20 @@ const EMPTY: PlayerState = Object.freeze({
  * A picture without pixel sizes cannot be laid out, so one that arrives without
  * them is measured before it is used. Measuring here rather than in the scene
  * keeps the first frame from being drawn against a guessed size and jumping.
+ *
+ * One picture that will not load drops out instead of failing the set. The host
+ * still hears about it: the name turns up in `missing` on the ready event, and a
+ * set with one roll absent beats a blank screen on a flaky connection.
  */
 export async function measureImages(
   images: readonly PlayerImageInput[],
 ): Promise<IsoPresetImage[]> {
-  return Promise.all(
-    images.map(async (image) => {
+  const measured = await Promise.all(
+    images.map(async (image): Promise<IsoPresetImage | null> => {
       if (image.width && image.height) {
         return { height: image.height, name: image.name, url: image.url, width: image.width };
       }
-      return new Promise<IsoPresetImage>((resolve, reject) => {
+      return new Promise<IsoPresetImage | null>((resolve) => {
         const element = new Image();
         element.onload = () =>
           resolve({
@@ -63,11 +67,12 @@ export async function measureImages(
             url: image.url,
             width: element.naturalWidth,
           });
-        element.onerror = () => reject(new Error(`Roll picture failed to load: ${image.name}`));
+        element.onerror = () => resolve(null);
         element.src = image.url;
       });
     }),
   );
+  return measured.filter((image): image is IsoPresetImage => image !== null);
 }
 
 export type PlayerStore = Readonly<{

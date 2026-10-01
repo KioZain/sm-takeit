@@ -2,6 +2,8 @@ import appDefaults from "@/app/app-defaults.json" with { type: "json" };
 
 import type { IsoPresetImage } from "@/app/iso/iso-preset-scene";
 
+import { measureImages } from "./player-store";
+
 /**
  * The rolls the generator ships, resolved to URLs for the demo page. A real host
  * supplies its own list instead; this exists so the player can be opened and
@@ -24,19 +26,9 @@ function defaultImageUrls(base: string): Readonly<Record<string, string>> {
  * so the pictures are measured before the first frame is drawn. A host that
  * already knows its sizes can skip this and build the list directly.
  */
-export async function loadDefaultImages(base = "/"): Promise<IsoPresetImage[]> {
+export function loadDefaultImages(base = "/"): Promise<IsoPresetImage[]> {
   const urls = defaultImageUrls(base);
-  return Promise.all(
-    Object.entries(urls).map(
-      (entry) =>
-        new Promise<IsoPresetImage>((resolve, reject) => {
-          const [name, url] = entry;
-          const image = new Image();
-          image.onload = () =>
-            resolve({ height: image.naturalHeight, name, url, width: image.naturalWidth });
-          image.onerror = () => reject(new Error(`Roll picture failed to load: ${name}`));
-          image.src = url;
-        }),
-    ),
-  );
+  // Sizes are left out on purpose so the demo exercises the same measuring path
+  // a host without sizes goes through, including a picture that will not load.
+  return measureImages(Object.entries(urls).map(([name, url]) => ({ name, url })));
 }
