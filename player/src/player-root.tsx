@@ -8,10 +8,17 @@ import { PlayerScene } from "./player-scene";
  * Runs the cycle while the player is playing. The clock is driven by the gaps
  * between frames rather than by a start timestamp, so changing speed or scrubbing
  * mid-cycle carries on from where the wave stands instead of snapping.
+ *
+ * There is deliberately no `document.hidden` check. The browser already stops
+ * delivering frames to a page nobody can see, so the gate bought nothing, and
+ * an embedder that reports itself hidden while visible — which happens — would
+ * leave the set frozen with no way for the host to tell why. Coming back after
+ * a pause is handled where it belongs: `advanceLoopProgress` refuses to jump
+ * more than one cycle, so a long gap costs a cycle, not a lurch.
  */
-function useLoopClock(store: PlayerStore, running: boolean, loopSeconds: number): void {
+function useLoopClock(store: PlayerStore, playing: boolean, loopSeconds: number): void {
   React.useEffect(() => {
-    if (!running) return;
+    if (!playing) return;
     let frame = 0;
     let last = performance.now();
     const tick = (now: number) => {
@@ -22,30 +29,12 @@ function useLoopClock(store: PlayerStore, running: boolean, loopSeconds: number)
     };
     frame = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(frame);
-  }, [loopSeconds, running, store]);
-}
-
-/**
- * Whether the page is on screen. This deliberately does not touch the stored
- * `playing` flag: that flag is what the host asked for, and a backgrounded app
- * must come back animating rather than stay frozen until someone calls play().
- */
-function useDocumentVisible(): boolean {
-  const subscribe = React.useCallback((listener: () => void) => {
-    document.addEventListener("visibilitychange", listener);
-    return () => document.removeEventListener("visibilitychange", listener);
-  }, []);
-  return React.useSyncExternalStore(
-    subscribe,
-    () => !document.hidden,
-    () => true,
-  );
+  }, [loopSeconds, playing, store]);
 }
 
 export function PlayerRoot({ store }: Readonly<{ store: PlayerStore }>): React.JSX.Element | null {
   const state = React.useSyncExternalStore(store.subscribe, store.getState, store.getState);
-  const visible = useDocumentVisible();
-  useLoopClock(store, state.playing && visible, state.loopSeconds);
+  useLoopClock(store, state.playing, state.loopSeconds);
   if (!state.preset || !state.images) return null;
   return <PlayerScene images={state.images} preset={state.preset} progress={state.progress} />;
 }
