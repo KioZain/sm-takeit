@@ -23,7 +23,10 @@
     "verify:delivery": "node scripts/run-delivery-verification.mjs",
     "verify:perf": "node scripts/run-browser-performance.mjs",
     "verify:kernel": "node scripts/run-kernel-benchmarks.mjs",
-    "verify:receipt": "node scripts/toolcraft-verification-receipt.mjs validate"
+    "verify:receipt": "node scripts/toolcraft-verification-receipt.mjs validate",
+    "player:dev": "vite --config player/vite.config.ts player",
+    "player:build": "vite build --config player/vite.config.ts player",
+    "player:typecheck": "tsc -p player/tsconfig.json --noEmit"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",

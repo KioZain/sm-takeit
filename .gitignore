@@ -40,3 +40,6 @@ Thumbs.db
 .vscode/*
 !.vscode/extensions.json
 !.vscode/settings.json
+
+# Player engine build output
+player/dist/

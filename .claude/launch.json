@@ -4,8 +4,25 @@
     {
       "name": "sushi-set-dev",
       "runtimeExecutable": "npm",
-      "runtimeArgs": ["run", "dev"],
+      "runtimeArgs": [
+        "run",
+        "dev"
+      ],
       "port": 3002
+    },
+    {
+      "name": "player-dev",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "--config",
+        "player/vite.config.ts",
+        "player",
+        "--port",
+        "3011",
+        "--strictPort"
+      ],
+      "port": 3011
     }
   ]
 }
