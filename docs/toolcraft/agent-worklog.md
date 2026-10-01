@@ -24,6 +24,17 @@ Missing performance intent means ordinary work. Performance evidence must be an 
 
 ## Decisions
 
+### Change `webview-player-engine`
+
+- Entry type: focused
+- Change ID: webview-player-engine
+- Request: «Составь подробный этапный план по реализации WebView-плеер… Реализация будет для Android- Kotlin, IOS- Swift»
+- Changed owner: new `player/` build outside the scanned source roots; `src/app/iso/iso-preset-scene.ts`; speed control in `src/app/app-schema.ts` plus `iso-state.ts`, `iso-canvas.tsx`, `iso-saved-presets.ts`.
+- User-visible result: a Speed slider paces the wave and travels with a preset; a single 271 KB `player/dist/index.html` draws any preset with a transparent background inside a mobile WebView and is driven by `window.TeikidoPlayer`.
+- Verification: 136 iso Vitest tests including a preset/editor scene-equivalence test across four points of the wave; 5 player clock tests; `ai:check` (58 files), integrity (847 files), docs check and player typecheck clean; in the running app the Speed slider moved `timeline.durationSeconds` and the measured roll travel went 8.32 px to 17.25 px over the same 1.5 s; in the built player a single JSON string drew the scene with zero network requests.
+- Risks: not yet run in a real WKWebView or Android WebView — platform transparency settings and on-device frame rate are unconfirmed; `iso-state.ts` now imports one runtime helper by its internal path, which a regenerated runtime could move (the build would fail loudly).
+
+
 ### Change `place-replaces-occupied`
 
 - Entry type: focused
