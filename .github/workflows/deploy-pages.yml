@@ -31,6 +31,16 @@ jobs:
       - name: Build
         run: npx vite build --base="/${{ github.event.repository.name }}/"
 
+      # The WebView player is its own page next to the generator, built from
+      # player/ and copied under /player/. It carries the demo roll pictures so
+      # the link can be opened on a phone without an app around it.
+      - name: Build the player
+        run: |
+          npx vite build --config player/vite.config.ts player
+          mkdir -p dist/player
+          cp player/dist/index.html dist/player/index.html
+          cp -R public/toolcraft-defaults dist/player/toolcraft-defaults
+
       # index.html is framework-owned, so the published page is cleaned after the build.
       - name: Clean the published page
         run: |

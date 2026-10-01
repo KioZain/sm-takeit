@@ -38,6 +38,18 @@
         "--strictPort"
       ],
       "port": 3012
+    },
+    {
+      "name": "dist-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "http-server",
+        "dist",
+        "-p",
+        "3013",
+        "--silent"
+      ],
+      "port": 3013
     }
   ]
 }
