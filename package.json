@@ -26,7 +26,8 @@
     "verify:receipt": "node scripts/toolcraft-verification-receipt.mjs validate",
     "player:dev": "vite --config player/vite.config.ts player",
     "player:build": "vite build --config player/vite.config.ts player",
-    "player:typecheck": "tsc -p player/tsconfig.json --noEmit"
+    "player:typecheck": "tsc -p player/tsconfig.json --noEmit",
+    "player:test": "vitest run player"
   },
   "dependencies": {
     "@base-ui/react": "^1.4.1",
