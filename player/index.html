@@ -2,7 +2,16 @@
 <html lang="ru">
   <head>
     <meta charset="utf-8" />
-    <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover" />
+    <!--
+      `user-scalable=no` and the cover fit stop a WebView from pinch-zooming or
+      inset-shifting the set: this page is a picture inside someone else's
+      screen, not a document the viewer navigates.
+    -->
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"
+    />
+    <meta name="color-scheme" content="light dark" />
     <title>Тэйкидо — плеер</title>
   </head>
   <body>

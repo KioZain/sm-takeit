@@ -14,6 +14,8 @@ body {
   -webkit-touch-callout: none;
   -webkit-tap-highlight-color: transparent;
   overscroll-behavior: none;
+  /* A player must not react to a drag meant for the screen behind it. */
+  touch-action: none;
 }
 
 #player {

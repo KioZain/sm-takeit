@@ -23,6 +23,21 @@
         "--strictPort"
       ],
       "port": 3011
+    },
+    {
+      "name": "player-preview",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "vite",
+        "preview",
+        "--config",
+        "player/vite.config.ts",
+        "player",
+        "--port",
+        "3012",
+        "--strictPort"
+      ],
+      "port": 3012
     }
   ]
 }

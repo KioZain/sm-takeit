@@ -1,4 +1,9 @@
-import { getToolcraftTimelineLoopProgress, type ToolcraftCommand } from "@/toolcraft/runtime";
+import type { ToolcraftCommand } from "@/toolcraft/runtime";
+// Deliberately not the runtime barrel: that one entry pulls the whole runtime in,
+// including the 3D model-import worker this product never uses. Importing the one
+// helper directly takes the WebView player bundle from 537 KB to 270 KB and drops
+// a 1.25 MB chunk. If a regenerated runtime moves this file, the build says so.
+import { getToolcraftTimelineLoopProgress } from "@/toolcraft/runtime/state/timeline-loop";
 
 import {
   createPlacementId,
