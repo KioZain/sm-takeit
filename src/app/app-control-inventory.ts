@@ -184,6 +184,7 @@ export const appControlSectionInventory: readonly ToolcraftControlSectionInvento
       ISO_TARGETS.reliefMax,
       ISO_TARGETS.reliefStep,
       ISO_TARGETS.reliefWave,
+      ISO_TARGETS.reliefLoopSeconds,
       ISO_TARGETS.reliefWaveLength,
       ISO_TARGETS.reliefWaveDirection,
       ISO_TARGETS.reliefWaveEasing,

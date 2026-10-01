@@ -57,6 +57,7 @@ import {
   getIsoLoopProgress,
   getIsoReliefLayers,
   isIsoWaveActive,
+  readIsoLoopSeconds,
   withIsoLoopProgress,
   getIsoLibraryObjects,
   normalizeIsoObjectRecord,
@@ -270,6 +271,16 @@ export function IsoCanvas(): React.JSX.Element | null {
   );
   const sourceRef = React.useRef(source);
   sourceRef.current = source;
+
+  // Speed lives in the panel because no runtime control here can edit the clock:
+  // the timeline panel renders compact and only expands with keyframes, which
+  // this app does not enable. The value flows one way, panel to timeline, so the
+  // two never drift and a preset keeps meaning exactly one speed.
+  const loopSeconds = readIsoLoopSeconds(values);
+  React.useEffect(() => {
+    if (durationSeconds === loopSeconds) return;
+    dispatch({ durationSeconds: loopSeconds, type: "timeline.setDuration" });
+  }, [dispatch, durationSeconds, loopSeconds]);
 
   const { libraryAssets, urls } = useIsoLibrarySync(source);
   const libraryKey = libraryAssets

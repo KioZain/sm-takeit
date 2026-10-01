@@ -57,6 +57,24 @@ export const appMotionAcceptance: readonly ToolcraftComponentAcceptance[] = [
   },
   {
     automated: true,
+    automatedTestName: "loop seconds pace the wave and travel with a preset",
+    browser: {
+      budget: "standard",
+      file: specs.motion,
+      testName: "browser acceptance: speed changes how long one wave cycle takes",
+    },
+    componentType: "slider",
+    evidence: "rendered-pixels",
+    expectedObservable:
+      "Dragging Speed changes how far the crests have travelled at the same wall-clock moment, and the runtime loop length follows it.",
+    fixture: "corner wave running",
+    id: "relief.loopSeconds",
+    kind: "control",
+    target: ISO_TARGETS.reliefLoopSeconds,
+    userAction: "Turn the wave on and drag Speed.",
+  },
+  {
+    automated: true,
     automatedTestName: "wave length spaces the crests",
     browser: {
       budget: "standard",

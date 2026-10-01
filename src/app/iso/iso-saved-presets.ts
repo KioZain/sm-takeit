@@ -75,6 +75,7 @@ export const ISO_PRESET_VALUE_TARGETS: readonly string[] = [
   ISO_TARGETS.reliefWaveDirection,
   ISO_TARGETS.reliefWaveEasing,
   ISO_TARGETS.reliefWaveLength,
+  ISO_TARGETS.reliefLoopSeconds,
   ISO_TARGETS.reliefEdits,
   ISO_TARGETS.crop,
   ISO_TARGETS.padding,

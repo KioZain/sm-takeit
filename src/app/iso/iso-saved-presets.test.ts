@@ -65,6 +65,19 @@ describe("sushi set saved presets", () => {
     ]);
   });
 
+  it("carries the wave speed so a preset means exactly one pace", () => {
+    const state = createState({
+      [ISO_TARGETS.reliefLoopSeconds]: 7.5,
+      [ISO_TARGETS.reliefPattern]: "corner-rings",
+      [ISO_TARGETS.reliefWave]: true,
+    });
+    const preset = savedOf(state);
+    expect(preset.values[ISO_TARGETS.reliefLoopSeconds]).toBe(7.5);
+    // Applying it puts the same number back, so the player and the generator
+    // read one speed rather than two.
+    expect(applied(getIsoSavedPresetCommand(state, preset))[ISO_TARGETS.reliefLoopSeconds]).toBe(7.5);
+  });
+
   it("never stores uploads or session-only state", () => {
     const preset = savedOf(createState({ [ISO_TARGETS.tool]: "erase" }));
     const stored = Object.keys(preset.values);

@@ -55,6 +55,7 @@ export const ISO_TARGETS = {
   gridVisible: "grid.visible",
   gridZone: "grid.zone",
   reliefEdits: "relief.edits",
+  reliefLoopSeconds: "relief.loopSeconds",
   includeBackground: "export.includeBackground",
   includeGrid: "output.includeGrid",
   levelHeight: "grid.levelHeight",
@@ -97,6 +98,12 @@ export const ISO_EMPTY_PLACEMENTS: IsoPlacementsValue = Object.freeze({
   items: Object.freeze([]) as readonly IsoPlacement[],
 });
 
+/** Default loop length: one crest passes in four seconds, a calm pace at the default wave length. */
+export const ISO_WAVE_LOOP_SECONDS = 4;
+
+/** Seconds one wave cycle may take; the floor matches the runtime timeline minimum. */
+export const ISO_LOOP_SECONDS_RANGE = { max: 12, min: 1 } as const;
+
 export const ISO_DEFAULTS = {
   background: "#FFFFFF",
   cellSize: 72,
@@ -114,6 +121,7 @@ export const ISO_DEFAULTS = {
   padding: 24,
   reliefCorner: "top" as IsoReliefCorner,
   reliefEdge: "top-left" as IsoReliefEdge,
+  reliefLoopSeconds: ISO_WAVE_LOOP_SECONDS,
   reliefMax: 4,
   reliefPattern: "flat" as IsoReliefPattern,
   reliefStep: 2,
@@ -162,8 +170,6 @@ export type IsoStateSource = Readonly<{
   values: Readonly<Record<string, unknown>>;
 }>;
 
-/** Default loop length: one crest passes in four seconds, a calm pace at the default wave length. */
-export const ISO_WAVE_LOOP_SECONDS = 4;
 
 /** Wave length range in cells between two crests. */
 export const ISO_WAVE_LENGTH_RANGE = { max: 12, min: 2 } as const;
@@ -498,6 +504,21 @@ export function isIsoWaveActive(values: IsoStateSource["values"]): boolean {
 
 function pickHeights(layers: IsoReliefLayers): Pick<IsoSceneInput, "heightRange" | "heights"> {
   return { heightRange: layers.range, heights: layers.heights };
+}
+
+/**
+ * Seconds one wave cycle takes. The runtime timeline is what actually paces the
+ * wave — one cycle spans `state.timeline.durationSeconds` — but nothing in this
+ * app's panel can edit that, so the product owns the number and pushes it to the
+ * timeline. The push is one-way on purpose: reading the duration back would make
+ * two values drift apart, and a saved preset would stop meaning one speed.
+ */
+export function readIsoLoopSeconds(values: IsoStateSource["values"]): number {
+  return clamp(
+    finiteNumber(values[ISO_TARGETS.reliefLoopSeconds], ISO_DEFAULTS.reliefLoopSeconds),
+    ISO_LOOP_SECONDS_RANGE.min,
+    ISO_LOOP_SECONDS_RANGE.max,
+  );
 }
 
 /** Loop progress of the playback clock in [0, 1). */

@@ -145,6 +145,7 @@
       "relief.step": 2,
       "relief.wave": false,
       "relief.waveLength": 6,
+      "relief.loopSeconds": 4,
       "relief.waveDirection": "outward",
       "relief.waveEasing": "sine",
       "output.crop": "field",
